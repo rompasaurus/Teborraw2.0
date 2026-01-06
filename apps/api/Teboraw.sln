@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Teboraw.Api", "Teboraw.Api\Teboraw.Api.csproj", "{1BA46692-F29B-4757-B14C-0CD660B0D5FD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Teboraw.Core", "Teboraw.Core\Teboraw.Core.csproj", "{EC1E0545-3F85-46EB-B2E8-833C5034D2B6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Teboraw.Infrastructure", "Teboraw.Infrastructure\Teboraw.Infrastructure.csproj", "{A6AC1F80-18E2-4B84-A2F4-7F6F6B572A84}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1BA46692-F29B-4757-B14C-0CD660B0D5FD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1BA46692-F29B-4757-B14C-0CD660B0D5FD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1BA46692-F29B-4757-B14C-0CD660B0D5FD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1BA46692-F29B-4757-B14C-0CD660B0D5FD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EC1E0545-3F85-46EB-B2E8-833C5034D2B6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EC1E0545-3F85-46EB-B2E8-833C5034D2B6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EC1E0545-3F85-46EB-B2E8-833C5034D2B6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EC1E0545-3F85-46EB-B2E8-833C5034D2B6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A6AC1F80-18E2-4B84-A2F4-7F6F6B572A84}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A6AC1F80-18E2-4B84-A2F4-7F6F6B572A84}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A6AC1F80-18E2-4B84-A2F4-7F6F6B572A84}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A6AC1F80-18E2-4B84-A2F4-7F6F6B572A84}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

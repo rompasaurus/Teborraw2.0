@@ -1,0 +1,28 @@
+{
+  "name": "teboraw",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Personal activity tracking platform",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "pnpm --filter @teboraw/web dev",
+    "dev:desktop": "pnpm --filter @teboraw/desktop dev",
+    "dev:mobile": "pnpm --filter @teboraw/mobile start",
+    "dev:api": "dotnet watch run --project apps/api/Teboraw.Api",
+    "build:web": "pnpm --filter @teboraw/web build",
+    "build:desktop": "pnpm --filter @teboraw/desktop build",
+    "build:extension": "pnpm --filter @teboraw/extension build",
+    "build:api": "dotnet build apps/api/Teboraw.sln",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "clean": "pnpm -r clean"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

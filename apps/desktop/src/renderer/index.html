@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Teboraw Desktop</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+          Oxygen, Ubuntu, sans-serif;
+        background: #0f172a;
+        color: #e2e8f0;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      .container {
+        padding: 20px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #334155;
+        -webkit-app-region: drag;
+      }
+
+      .header h1 {
+        font-size: 24px;
+        color: #0ea5e9;
+      }
+
+      .status {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 20px;
+      }
+
+      .status-indicator {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 40px;
+      }
+
+      .status-indicator.tracking {
+        background: rgba(34, 197, 94, 0.2);
+        border: 2px solid #22c55e;
+      }
+
+      .status-indicator.paused {
+        background: rgba(234, 179, 8, 0.2);
+        border: 2px solid #eab308;
+      }
+
+      .status-indicator.stopped {
+        background: rgba(239, 68, 68, 0.2);
+        border: 2px solid #ef4444;
+      }
+
+      .status-text {
+        text-align: center;
+      }
+
+      .status-text h2 {
+        font-size: 18px;
+        margin-bottom: 8px;
+      }
+
+      .status-text p {
+        color: #94a3b8;
+        font-size: 14px;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 20px;
+      }
+
+      .stat {
+        background: #1e293b;
+        padding: 12px;
+        border-radius: 8px;
+        text-align: center;
+      }
+
+      .stat-value {
+        font-size: 24px;
+        font-weight: bold;
+        color: #0ea5e9;
+      }
+
+      .stat-label {
+        font-size: 12px;
+        color: #94a3b8;
+        margin-top: 4px;
+      }
+
+      .actions {
+        display: flex;
+        gap: 12px;
+        padding-top: 20px;
+        border-top: 1px solid #334155;
+      }
+
+      button {
+        flex: 1;
+        padding: 12px;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      button.primary {
+        background: #0ea5e9;
+        color: white;
+      }
+
+      button.primary:hover {
+        background: #0284c7;
+      }
+
+      button.secondary {
+        background: #334155;
+        color: #e2e8f0;
+      }
+
+      button.secondary:hover {
+        background: #475569;
+      }
+
+      .login-form {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 16px;
+      }
+
+      .login-form input {
+        padding: 12px;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        background: #1e293b;
+        color: #e2e8f0;
+        font-size: 14px;
+      }
+
+      .login-form input:focus {
+        outline: none;
+        border-color: #0ea5e9;
+      }
+
+      .error {
+        color: #ef4444;
+        font-size: 14px;
+        text-align: center;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>Teboraw</h1>
+      </div>
+
+      <!-- Login Form -->
+      <div id="loginSection" class="login-form">
+        <input type="text" id="apiUrl" placeholder="API URL" value="http://localhost:5000/api" />
+        <input type="email" id="email" placeholder="Email" />
+        <input type="password" id="password" placeholder="Password" />
+        <div id="loginError" class="error hidden"></div>
+        <button class="primary" onclick="login()">Login</button>
+      </div>
+
+      <!-- Status Section -->
+      <div id="statusSection" class="status hidden">
+        <div id="statusIndicator" class="status-indicator tracking">
+          ●
+        </div>
+        <div class="status-text">
+          <h2 id="statusTitle">Tracking Active</h2>
+          <p id="statusDescription">Monitoring your activity</p>
+        </div>
+        <div class="stats">
+          <div class="stat">
+            <div id="pendingCount" class="stat-value">0</div>
+            <div class="stat-label">Pending Sync</div>
+          </div>
+          <div class="stat">
+            <div id="lastSync" class="stat-value">-</div>
+            <div class="stat-label">Last Sync</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="actionsSection" class="actions hidden">
+        <button id="toggleBtn" class="secondary" onclick="toggleTracking()">
+          Pause
+        </button>
+        <button class="primary" onclick="syncNow()">Sync Now</button>
+        <button class="secondary" onclick="logout()">Logout</button>
+      </div>
+    </div>
+
+    <script>
+      let isLoggedIn = false
+      let isPaused = false
+
+      async function init() {
+        const auth = await window.teboraw.getAuth()
+
+        if (auth.accessToken) {
+          showStatus()
+          updateStatus()
+          setInterval(updateStatus, 5000)
+        } else {
+          showLogin()
+        }
+      }
+
+      function showLogin() {
+        document.getElementById('loginSection').classList.remove('hidden')
+        document.getElementById('statusSection').classList.add('hidden')
+        document.getElementById('actionsSection').classList.add('hidden')
+        isLoggedIn = false
+      }
+
+      function showStatus() {
+        document.getElementById('loginSection').classList.add('hidden')
+        document.getElementById('statusSection').classList.remove('hidden')
+        document.getElementById('actionsSection').classList.remove('hidden')
+        isLoggedIn = true
+      }
+
+      async function login() {
+        const apiUrl = document.getElementById('apiUrl').value
+        const email = document.getElementById('email').value
+        const password = document.getElementById('password').value
+
+        try {
+          const response = await fetch(`${apiUrl}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+          })
+
+          if (!response.ok) {
+            throw new Error('Invalid credentials')
+          }
+
+          const data = await response.json()
+
+          await window.teboraw.setAuth({
+            apiUrl,
+            accessToken: data.accessToken,
+            refreshToken: data.refreshToken,
+          })
+
+          showStatus()
+          updateStatus()
+          setInterval(updateStatus, 5000)
+        } catch (error) {
+          document.getElementById('loginError').textContent = error.message
+          document.getElementById('loginError').classList.remove('hidden')
+        }
+      }
+
+      async function updateStatus() {
+        const status = await window.teboraw.getStatus()
+
+        const indicator = document.getElementById('statusIndicator')
+        const title = document.getElementById('statusTitle')
+        const description = document.getElementById('statusDescription')
+        const toggleBtn = document.getElementById('toggleBtn')
+
+        indicator.classList.remove('tracking', 'paused', 'stopped')
+
+        if (status.isPaused) {
+          indicator.classList.add('paused')
+          title.textContent = 'Tracking Paused'
+          description.textContent = 'Click Resume to continue'
+          toggleBtn.textContent = 'Resume'
+          isPaused = true
+        } else if (status.isTracking) {
+          indicator.classList.add('tracking')
+          title.textContent = 'Tracking Active'
+          description.textContent = 'Monitoring your activity'
+          toggleBtn.textContent = 'Pause'
+          isPaused = false
+        } else {
+          indicator.classList.add('stopped')
+          title.textContent = 'Tracking Stopped'
+          description.textContent = 'Login to start tracking'
+          isPaused = false
+        }
+
+        document.getElementById('pendingCount').textContent = status.pendingActivities
+
+        if (status.lastSync) {
+          const lastSync = new Date(status.lastSync)
+          const now = new Date()
+          const diff = Math.floor((now - lastSync) / 60000)
+          document.getElementById('lastSync').textContent = diff < 1 ? 'Just now' : `${diff}m ago`
+        }
+      }
+
+      async function toggleTracking() {
+        if (isPaused) {
+          await window.teboraw.resumeTracking()
+        } else {
+          await window.teboraw.pauseTracking()
+        }
+        updateStatus()
+      }
+
+      async function syncNow() {
+        await window.teboraw.syncNow()
+        updateStatus()
+      }
+
+      async function logout() {
+        await window.teboraw.logout()
+        showLogin()
+      }
+
+      init()
+    </script>
+  </body>
+</html>
