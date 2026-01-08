@@ -9,6 +9,12 @@ export default defineConfig({
         input: {
           index: path.resolve(__dirname, 'src/main/index.ts'),
         },
+        // Externalize native modules that need to be loaded at runtime
+        external: [
+          'uiohook-napi',
+          'active-win',
+          'screenshot-desktop',
+        ],
       },
     },
   },

@@ -3,8 +3,12 @@ import path from 'path'
 import { ActivityTracker } from './tracker'
 import { SyncService } from './sync'
 import Store from 'electron-store'
+import { AppCategory } from './types'
 
-const store = new Store()
+// Track if app is quitting (used to prevent window hide on close when actually quitting)
+let isQuitting = false
+
+const store = new Store({ name: 'teboraw-config' })
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let activityTracker: ActivityTracker | null = null
@@ -13,7 +17,7 @@ let syncService: SyncService | null = null
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 400,
-    height: 600,
+    height: 700,
     show: false,
     frame: false,
     resizable: false,
@@ -31,7 +35,7 @@ function createWindow() {
   }
 
   mainWindow.on('close', (event) => {
-    if (!app.isQuitting) {
+    if (!isQuitting) {
       event.preventDefault()
       mainWindow?.hide()
     }
@@ -44,55 +48,76 @@ function createTray() {
 
   tray = new Tray(icon)
 
-  const contextMenu = Menu.buildFromTemplate([
-    {
-      label: 'Show Window',
-      click: () => mainWindow?.show(),
-    },
-    {
-      label: 'Tracking',
-      submenu: [
-        {
-          label: 'Pause Tracking',
-          click: () => activityTracker?.pause(),
-        },
-        {
-          label: 'Resume Tracking',
-          click: () => activityTracker?.resume(),
-        },
-      ],
-    },
-    { type: 'separator' },
-    {
-      label: 'Sync Now',
-      click: () => syncService?.syncNow(),
-    },
-    { type: 'separator' },
-    {
-      label: 'Quit',
-      click: () => {
-        app.isQuitting = true
-        app.quit()
+  const updateTrayMenu = () => {
+    const isPaused = activityTracker?.isPaused() ?? false
+    const isRunning = activityTracker?.isRunning() ?? false
+
+    const contextMenu = Menu.buildFromTemplate([
+      {
+        label: 'Show Window',
+        click: () => mainWindow?.show(),
       },
-    },
-  ])
+      { type: 'separator' },
+      {
+        label: isRunning ? (isPaused ? 'Resume Tracking' : 'Pause Tracking') : 'Start Tracking',
+        click: () => {
+          if (!isRunning) {
+            activityTracker?.start()
+          } else if (isPaused) {
+            activityTracker?.resume()
+          } else {
+            activityTracker?.pause()
+          }
+          updateTrayMenu()
+        },
+      },
+      {
+        label: 'Sync Now',
+        click: () => syncService?.syncNow(),
+      },
+      { type: 'separator' },
+      {
+        label: `Status: ${isRunning ? (isPaused ? 'Paused' : 'Tracking') : 'Stopped'}`,
+        enabled: false,
+      },
+      { type: 'separator' },
+      {
+        label: 'Quit',
+        click: () => {
+          isQuitting = true
+          app.quit()
+        },
+      },
+    ])
+
+    tray?.setContextMenu(contextMenu)
+  }
 
   tray.setToolTip('Teboraw - Activity Tracker')
-  tray.setContextMenu(contextMenu)
+  updateTrayMenu()
 
   tray.on('click', () => {
     mainWindow?.show()
   })
+
+  // Update menu periodically
+  setInterval(updateTrayMenu, 5000)
 }
 
 function initializeServices() {
   const apiUrl = store.get('apiUrl', 'http://localhost:5000/api') as string
   const accessToken = store.get('accessToken', '') as string
+  const excludedApps = store.get('excludedApps', []) as string[]
+  const customCategories = store.get('customCategories') as AppCategory[] | undefined
+  const idleThreshold = store.get('idleThreshold', 300000) as number
 
   activityTracker = new ActivityTracker({
     screenshotInterval: 300000, // 5 minutes
     activityInterval: 5000, // 5 seconds
-    idleThreshold: 300000, // 5 minutes
+    idleThreshold, // 5 minutes default
+    inputAggregationInterval: 300000, // 5 minutes
+    excludedApps,
+    customCategories,
     onActivity: (activity) => {
       syncService?.queueActivity(activity)
     },
@@ -111,7 +136,10 @@ function initializeServices() {
   }
 }
 
-// IPC handlers
+// ============================================
+// IPC Handlers - Authentication
+// ============================================
+
 ipcMain.handle('get-auth', () => ({
   apiUrl: store.get('apiUrl', 'http://localhost:5000/api'),
   accessToken: store.get('accessToken', ''),
@@ -140,11 +168,16 @@ ipcMain.handle('logout', () => {
   syncService?.stop()
 })
 
+// ============================================
+// IPC Handlers - Status & Control
+// ============================================
+
 ipcMain.handle('get-status', () => ({
   isTracking: activityTracker?.isRunning() ?? false,
   isPaused: activityTracker?.isPaused() ?? false,
   pendingActivities: syncService?.getPendingCount() ?? 0,
   lastSync: syncService?.getLastSyncTime() ?? null,
+  hasInputMonitoring: activityTracker?.hasInputMonitoring() ?? false,
 }))
 
 ipcMain.handle('pause-tracking', () => {
@@ -159,7 +192,106 @@ ipcMain.handle('sync-now', async () => {
   await syncService?.syncNow()
 })
 
-// App lifecycle
+// ============================================
+// IPC Handlers - Statistics & Productivity
+// ============================================
+
+ipcMain.handle('get-statistics', (_, date?: string) => {
+  const targetDate = date ? new Date(date) : new Date()
+  return activityTracker?.getStatistics(targetDate) ?? null
+})
+
+ipcMain.handle('get-current-productivity', (_, windowMinutes?: number) => {
+  return activityTracker?.getCurrentProductivity(windowMinutes ?? 60) ?? 0
+})
+
+ipcMain.handle('get-idle-state', () => {
+  return activityTracker?.getIdleState() ?? null
+})
+
+ipcMain.handle('get-input-stats', () => {
+  return activityTracker?.getInputStats() ?? null
+})
+
+ipcMain.handle('get-current-window', () => {
+  return activityTracker?.getCurrentWindow() ?? null
+})
+
+// ============================================
+// IPC Handlers - Categories & Settings
+// ============================================
+
+ipcMain.handle('get-categories', () => {
+  return activityTracker?.getCategories() ?? []
+})
+
+ipcMain.handle('set-categories', (_, categories: AppCategory[]) => {
+  activityTracker?.setCategories(categories)
+  store.set('customCategories', categories)
+})
+
+ipcMain.handle('get-excluded-apps', () => {
+  return activityTracker?.getExcludedApps() ?? []
+})
+
+ipcMain.handle('set-excluded-apps', (_, apps: string[]) => {
+  activityTracker?.setExcludedApps(apps)
+  store.set('excludedApps', apps)
+})
+
+ipcMain.handle('get-idle-threshold', () => {
+  return activityTracker?.getIdleThreshold() ?? 300000
+})
+
+ipcMain.handle('set-idle-threshold', (_, thresholdMs: number) => {
+  activityTracker?.setIdleThreshold(thresholdMs)
+  store.set('idleThreshold', thresholdMs)
+})
+
+// ============================================
+// IPC Handlers - Permissions (macOS)
+// ============================================
+
+ipcMain.handle('get-permission-status', () => {
+  return activityTracker?.getPermissionStatus() ?? { accessibility: false, screenCapture: false }
+})
+
+ipcMain.handle('request-permissions', async () => {
+  return activityTracker?.requestPermissions() ?? { accessibility: false, screenCapture: false }
+})
+
+ipcMain.handle('get-input-monitor-status', () => {
+  return activityTracker?.hasInputMonitoring() ?? false
+})
+
+// ============================================
+// IPC Handlers - Data Export
+// ============================================
+
+ipcMain.handle('export-data', () => {
+  return activityTracker?.exportData() ?? { sessions: [], inputStats: [], idlePeriods: [] }
+})
+
+ipcMain.handle('get-screenshots-dir', () => {
+  return activityTracker?.getScreenshotsDir() ?? ''
+})
+
+// ============================================
+// IPC Handlers - Window Controls
+// ============================================
+
+ipcMain.handle('minimize-window', () => {
+  mainWindow?.minimize()
+})
+
+ipcMain.handle('close-window', () => {
+  mainWindow?.hide()
+})
+
+// ============================================
+// App Lifecycle
+// ============================================
+
 app.whenReady().then(() => {
   createWindow()
   createTray()
@@ -183,10 +315,3 @@ app.on('before-quit', () => {
   activityTracker?.stop()
   syncService?.stop()
 })
-
-// Extend app type
-declare module 'electron' {
-  interface App {
-    isQuitting?: boolean
-  }
-}

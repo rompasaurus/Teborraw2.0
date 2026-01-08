@@ -3,21 +3,25 @@
   "version": "1.0.0",
   "private": true,
   "description": "Teboraw Desktop Activity Tracker",
-  "main": "dist/main/index.js",
+  "main": "out/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
+    "dev": "ELECTRON_RUN_AS_NODE= electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "package": "electron-builder",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "postinstall": "electron-rebuild",
+    "rebuild": "electron-rebuild -f -w uiohook-napi"
   },
   "dependencies": {
     "active-win": "^8.1.0",
     "axios": "^1.7.9",
-    "electron-store": "^10.0.0",
-    "screenshot-desktop": "^1.15.0"
+    "electron-store": "^8.2.0",
+    "screenshot-desktop": "^1.15.0",
+    "uiohook-napi": "^1.5.4"
   },
   "devDependencies": {
+    "@electron/rebuild": "^3.6.0",
     "@types/node": "^22.10.2",
     "electron": "^33.2.1",
     "electron-builder": "^25.1.8",
@@ -31,9 +35,17 @@
     "directories": {
       "output": "release"
     },
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/uiohook-napi/**/*"
+    ],
     "mac": {
       "target": ["dmg"],
-      "category": "public.app-category.productivity"
+      "category": "public.app-category.productivity",
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
     },
     "win": {
       "target": ["nsis"]

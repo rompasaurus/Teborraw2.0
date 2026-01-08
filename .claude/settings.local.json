@@ -5,7 +5,16 @@
       "Bash(dotnet sln add:*)",
       "Bash(dotnet ef migrations add:*)",
       "Bash(dotnet build:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(cat:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm typecheck:*)",
+      "Bash(pnpm build:*)",
+      "Bash(timeout 15 pnpm dev:*)",
+      "Bash(timeout 15 bash:*)",
+      "Bash(gtimeout 15 bash -c 'export ELECTRON_RUN_AS_NODE=; pnpm dev')",
+      "Bash(perl -e 'alarm 15; exec @ARGV' bash -c 'export ELECTRON_RUN_AS_NODE=; pnpm dev')",
+      "Bash(pkill:*)"
     ]
   }
 }
