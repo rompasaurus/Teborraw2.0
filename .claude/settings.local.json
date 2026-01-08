@@ -14,7 +14,8 @@
       "Bash(timeout 15 bash:*)",
       "Bash(gtimeout 15 bash -c 'export ELECTRON_RUN_AS_NODE=; pnpm dev')",
       "Bash(perl -e 'alarm 15; exec @ARGV' bash -c 'export ELECTRON_RUN_AS_NODE=; pnpm dev')",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(lsof:*)"
     ]
   }
 }

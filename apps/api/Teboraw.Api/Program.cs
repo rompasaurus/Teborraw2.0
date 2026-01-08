@@ -11,7 +11,12 @@ using Teboraw.Infrastructure.Repositories;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // Allow string enum conversion for API requests
+        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+    });
 builder.Services.AddEndpointsApiExplorer();
 
 // Configure Swagger with JWT support
@@ -97,8 +102,11 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
                 "http://localhost:5173",  // Vite dev server
-                "http://localhost:3000",   // Alternative React port
-                "http://localhost:8080"    // Electron
+                "http://localhost:5174",  // Vite dev server (alternative port)
+                "http://localhost:5175",  // Vite dev server (alternative port)
+                "http://localhost:5176",  // Vite dev server (alternative port)
+                "http://localhost:3000",  // Alternative React port
+                "http://localhost:8080"   // Electron
             )
             .AllowAnyMethod()
             .AllowAnyHeader()

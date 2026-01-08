@@ -1,8 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
-// Expose protected methods that allow the renderer process to use
-// the ipcRenderer without exposing the entire object
-contextBridge.exposeInMainWorld('teboraw', {
+console.log('Preload script starting...')
+console.log('contextBridge:', typeof contextBridge)
+console.log('ipcRenderer:', typeof ipcRenderer)
+
+try {
+  // Expose protected methods that allow the renderer process to use
+  // the ipcRenderer without exposing the entire object
+  contextBridge.exposeInMainWorld('teboraw', {
   // ============================================
   // Authentication
   // ============================================
@@ -58,7 +63,11 @@ contextBridge.exposeInMainWorld('teboraw', {
   // ============================================
   minimizeWindow: () => ipcRenderer.invoke('minimize-window'),
   closeWindow: () => ipcRenderer.invoke('close-window'),
-})
+  })
+  console.log('Preload script: teboraw API exposed successfully')
+} catch (error) {
+  console.error('Preload script error:', error)
+}
 
 // TypeScript declaration for the exposed API
 declare global {

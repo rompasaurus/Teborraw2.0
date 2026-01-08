@@ -1,5 +1,6 @@
 import { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage } from 'electron'
 import path from 'path'
+import fs from 'fs'
 import { ActivityTracker } from './tracker'
 import { SyncService } from './sync'
 import Store from 'electron-store'
@@ -15,6 +16,10 @@ let activityTracker: ActivityTracker | null = null
 let syncService: SyncService | null = null
 
 function createWindow() {
+  const preloadPath = path.join(__dirname, '../preload/index.js')
+  console.log('Preload path:', preloadPath)
+  console.log('Preload exists:', fs.existsSync(preloadPath))
+
   mainWindow = new BrowserWindow({
     width: 400,
     height: 700,
@@ -22,17 +27,26 @@ function createWindow() {
     frame: false,
     resizable: false,
     webPreferences: {
-      preload: path.join(__dirname, '../preload/index.js'),
+      preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false,
     },
   })
 
-  if (process.env.NODE_ENV === 'development') {
-    mainWindow.loadURL('http://localhost:5173')
+  // electron-vite sets ELECTRON_RENDERER_URL in dev mode
+  if (process.env.ELECTRON_RENDERER_URL) {
+    mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
+    // Open DevTools in development
+    mainWindow.webContents.openDevTools({ mode: 'detach' })
   } else {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
   }
+
+  // Show window when ready
+  mainWindow.on('ready-to-show', () => {
+    mainWindow?.show()
+  })
 
   mainWindow.on('close', (event) => {
     if (!isQuitting) {
@@ -105,7 +119,7 @@ function createTray() {
 }
 
 function initializeServices() {
-  const apiUrl = store.get('apiUrl', 'http://localhost:5000/api') as string
+  const apiUrl = store.get('apiUrl', 'http://localhost:5185/api') as string
   const accessToken = store.get('accessToken', '') as string
   const excludedApps = store.get('excludedApps', []) as string[]
   const customCategories = store.get('customCategories') as AppCategory[] | undefined
@@ -141,7 +155,7 @@ function initializeServices() {
 // ============================================
 
 ipcMain.handle('get-auth', () => ({
-  apiUrl: store.get('apiUrl', 'http://localhost:5000/api'),
+  apiUrl: store.get('apiUrl', 'http://localhost:5185/api'),
   accessToken: store.get('accessToken', ''),
   refreshToken: store.get('refreshToken', ''),
 }))

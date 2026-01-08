@@ -11,7 +11,6 @@ export default defineConfig({
         },
         // Externalize native modules that need to be loaded at runtime
         external: [
-          'uiohook-napi',
           'active-win',
           'screenshot-desktop',
         ],

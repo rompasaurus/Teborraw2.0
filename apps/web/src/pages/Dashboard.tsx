@@ -132,11 +132,19 @@ export function Dashboard() {
           ) : (
             <div className="space-y-4">
               {activities.map((activity) => {
+                // Handle both string and numeric enum values for backwards compatibility
+                const activityType = typeof activity.type === 'string'
+                  ? activity.type
+                  : ['WindowFocus', 'Screenshot', 'PageVisit', 'Search', 'TabChange', 'Location', 'AudioRecording', 'Thought', 'IdleStart', 'IdleEnd'][activity.type] || 'Unknown'
+                const activitySource = typeof activity.source === 'string'
+                  ? activity.source
+                  : ['Desktop', 'Browser', 'Mobile'][activity.source] || 'Unknown'
+
                 const SourceIcon =
-                  sourceIcons[activity.source as keyof typeof sourceIcons] ||
+                  sourceIcons[activitySource as keyof typeof sourceIcons] ||
                   Activity
                 const TypeIcon =
-                  typeIcons[activity.type as keyof typeof typeIcons] || Activity
+                  typeIcons[activityType as keyof typeof typeIcons] || Activity
 
                 return (
                   <div
@@ -149,10 +157,10 @@ export function Dashboard() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-sm font-medium text-white">
-                          {activity.type.replace(/([A-Z])/g, ' $1').trim()}
+                          {activityType.replace(/([A-Z])/g, ' $1').trim()}
                         </span>
                         <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-400">
-                          {activity.source}
+                          {activitySource}
                         </span>
                       </div>
                       <p className="text-sm text-slate-400 truncate">
