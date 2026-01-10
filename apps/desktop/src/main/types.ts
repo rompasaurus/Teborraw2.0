@@ -38,6 +38,13 @@ export interface InputStats {
   periodEndTime: Date
   periodSeconds: number
   textContent?: string // Captured text content for personal tracking
+  copyCount?: number // Number of copy operations
+  pasteCount?: number // Number of paste operations
+  clipboardHistory?: Array<{
+    operation: 'copy' | 'paste'
+    text: string
+    timestamp: Date
+  }> // History of clipboard operations
 }
 
 // Idle detection state

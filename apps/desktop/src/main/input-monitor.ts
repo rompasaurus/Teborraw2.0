@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events'
+import { clipboard } from 'electron'
 import { InputStats } from './types'
 
 /**
@@ -47,6 +48,13 @@ export class InputMonitor extends EventEmitter {
   // Buffer for capturing typed text
   private textBuffer: string = ''
   private readonly maxBufferSize: number = 10000 // Max characters to store
+
+  // Clipboard tracking
+  private copyCount: number = 0
+  private pasteCount: number = 0
+  private clipboardHistory: Array<{ operation: 'copy' | 'paste', text: string, timestamp: Date }> = []
+  private readonly maxClipboardHistory: number = 50 // Max clipboard entries to store
+  private lastClipboardText: string = ''
 
   constructor() {
     super()
@@ -116,6 +124,20 @@ export class InputMonitor extends EventEmitter {
   private handleKeyDown(event: any): void {
     this.lastKeyActivity = new Date()
     this.keystrokeCount++
+
+    // Detect copy/paste operations
+    // Ctrl+C or Cmd+C (keycode 46 = 'C')
+    if ((event.ctrlKey || event.metaKey) && event.keycode === 46) {
+      this.handleCopy()
+    }
+    // Ctrl+V or Cmd+V (keycode 47 = 'V')
+    else if ((event.ctrlKey || event.metaKey) && event.keycode === 47) {
+      this.handlePaste()
+    }
+    // Ctrl+X or Cmd+X (keycode 45 = 'X') - cut is also a copy operation
+    else if ((event.ctrlKey || event.metaKey) && event.keycode === 45) {
+      this.handleCopy()
+    }
 
     // Capture typed characters
     const char = this.keycodeToChar(event.keycode, event.shiftKey)
@@ -285,6 +307,66 @@ export class InputMonitor extends EventEmitter {
     return null
   }
 
+  /**
+   * Handle copy operation - capture clipboard content
+   */
+  private handleCopy(): void {
+    try {
+      // Small delay to ensure clipboard is populated
+      setTimeout(() => {
+        const clipboardText = clipboard.readText()
+        if (clipboardText && clipboardText !== this.lastClipboardText) {
+          this.copyCount++
+          this.lastClipboardText = clipboardText
+
+          // Add to clipboard history
+          this.clipboardHistory.push({
+            operation: 'copy',
+            text: clipboardText,
+            timestamp: new Date(),
+          })
+
+          // Enforce max clipboard history size
+          if (this.clipboardHistory.length > this.maxClipboardHistory) {
+            this.clipboardHistory = this.clipboardHistory.slice(-this.maxClipboardHistory)
+          }
+
+          console.log(`📋 Copy detected (${clipboardText.length} chars)`)
+        }
+      }, 50)
+    } catch (error) {
+      console.error('Error reading clipboard on copy:', error)
+    }
+  }
+
+  /**
+   * Handle paste operation - capture clipboard content
+   */
+  private handlePaste(): void {
+    try {
+      const clipboardText = clipboard.readText()
+      if (clipboardText) {
+        this.pasteCount++
+
+        // Add to clipboard history
+        this.clipboardHistory.push({
+          operation: 'paste',
+          text: clipboardText,
+          timestamp: new Date(),
+        })
+
+        // Enforce max clipboard history size
+        if (this.clipboardHistory.length > this.maxClipboardHistory) {
+          this.clipboardHistory = this.clipboardHistory.slice(-this.maxClipboardHistory)
+        }
+
+        console.log(`📋 Paste detected (${clipboardText.length} chars)`)
+      }
+    } catch (error) {
+      console.error('Error reading clipboard on paste:', error)
+    }
+  }
+
   getLastActivityTime(): Date {
     return this.lastKeyActivity > this.lastMouseActivity
       ? this.lastKeyActivity
@@ -327,6 +409,9 @@ export class InputMonitor extends EventEmitter {
       periodEndTime: now,
       periodSeconds,
       textContent: this.textBuffer,
+      copyCount: this.copyCount,
+      pasteCount: this.pasteCount,
+      clipboardHistory: [...this.clipboardHistory],
     }
   }
 
@@ -342,6 +427,9 @@ export class InputMonitor extends EventEmitter {
     this.scrollDistance = 0
     this.modifierUsage = { shift: 0, ctrl: 0, alt: 0, meta: 0 }
     this.textBuffer = ''
+    this.copyCount = 0
+    this.pasteCount = 0
+    this.clipboardHistory = []
     this.periodStartTime = new Date()
     this.wordBoundaryKeysSeen = false
 

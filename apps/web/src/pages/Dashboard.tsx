@@ -280,6 +280,35 @@ export function Dashboard() {
                   </div>
                 )}
               </div>
+              {/* Clipboard Activity */}
+              {((data.copyCount !== undefined && data.copyCount > 0) ||
+                (data.pasteCount !== undefined && data.pasteCount > 0) ||
+                (data.inputStats?.copyCount !== undefined && data.inputStats.copyCount > 0) ||
+                (data.inputStats?.pasteCount !== undefined && data.inputStats.pasteCount > 0)) && (
+                <div className="mt-3 pt-3 border-t border-slate-700">
+                  <p className="text-xs font-medium text-slate-400 mb-2">Clipboard Activity</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {((data.copyCount !== undefined && data.copyCount > 0) ||
+                      (data.inputStats?.copyCount !== undefined && data.inputStats.copyCount > 0)) && (
+                      <div>
+                        <span className="text-xs text-slate-500">Copy Operations:</span>
+                        <p className="text-sm text-white font-semibold">
+                          {data.copyCount ?? data.inputStats?.copyCount ?? 0}
+                        </p>
+                      </div>
+                    )}
+                    {((data.pasteCount !== undefined && data.pasteCount > 0) ||
+                      (data.inputStats?.pasteCount !== undefined && data.inputStats.pasteCount > 0)) && (
+                      <div>
+                        <span className="text-xs text-slate-500">Paste Operations:</span>
+                        <p className="text-sm text-white font-semibold">
+                          {data.pasteCount ?? data.inputStats?.pasteCount ?? 0}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               {/* Display captured text content */}
               {(data.textContent || data.inputStats?.textContent) && (
                 <div className="mt-3 pt-3 border-t border-slate-700">
@@ -288,6 +317,29 @@ export function Dashboard() {
                     <p className="text-xs text-slate-300 font-mono whitespace-pre-wrap break-words">
                       {data.textContent ?? data.inputStats?.textContent}
                     </p>
+                  </div>
+                </div>
+              )}
+              {/* Display clipboard history */}
+              {(data.clipboardHistory && data.clipboardHistory.length > 0) && (
+                <div className="mt-3 pt-3 border-t border-slate-700">
+                  <p className="text-xs font-medium text-slate-400 mb-2">Clipboard History</p>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {data.clipboardHistory.map((item: any, idx: number) => (
+                      <div key={idx} className="bg-slate-900 p-2 rounded border border-slate-700">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className={`text-xs font-medium ${item.operation === 'copy' ? 'text-blue-400' : 'text-green-400'}`}>
+                            {item.operation === 'copy' ? '📋 Copy' : '📌 Paste'}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            {new Date(item.timestamp).toLocaleTimeString()}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-300 font-mono truncate">
+                          {item.text}
+                        </p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -460,6 +512,27 @@ export function Dashboard() {
             </div>
           )}
 
+          {/* Clipboard Activity */}
+          {((data.copyCount !== undefined && data.copyCount > 0) || (data.pasteCount !== undefined && data.pasteCount > 0)) && (
+            <div className="pt-2 border-t border-slate-700">
+              <p className="text-xs font-medium text-slate-400 mb-2">Clipboard Activity</p>
+              <div className="grid grid-cols-2 gap-2">
+                {data.copyCount !== undefined && data.copyCount > 0 && (
+                  <div>
+                    <span className="text-xs text-slate-500">Copy Operations:</span>
+                    <p className="text-sm text-white font-semibold">{data.copyCount}</p>
+                  </div>
+                )}
+                {data.pasteCount !== undefined && data.pasteCount > 0 && (
+                  <div>
+                    <span className="text-xs text-slate-500">Paste Operations:</span>
+                    <p className="text-sm text-white font-semibold">{data.pasteCount}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Text Content */}
           {data.textContent && (
             <div className="pt-2 border-t border-slate-700">
@@ -468,6 +541,30 @@ export function Dashboard() {
                 <p className="text-xs text-slate-300 font-mono whitespace-pre-wrap break-words">
                   {data.textContent}
                 </p>
+              </div>
+            </div>
+          )}
+
+          {/* Clipboard History */}
+          {data.clipboardHistory && data.clipboardHistory.length > 0 && (
+            <div className="pt-2 border-t border-slate-700">
+              <p className="text-xs font-medium text-slate-400 mb-2">Clipboard History</p>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {data.clipboardHistory.map((item: any, idx: number) => (
+                  <div key={idx} className="bg-slate-900 p-2 rounded border border-slate-700">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className={`text-xs font-medium ${item.operation === 'copy' ? 'text-blue-400' : 'text-green-400'}`}>
+                        {item.operation === 'copy' ? '📋 Copy' : '📌 Paste'}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        {new Date(item.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 font-mono truncate">
+                      {item.text}
+                    </p>
+                  </div>
+                ))}
               </div>
             </div>
           )}

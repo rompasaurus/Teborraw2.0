@@ -287,6 +287,9 @@ export class ActivityTracker {
           wordsTyped: sessionInputStats.wordsTyped,
           avgTypingSpeed: sessionInputStats.avgTypingSpeed,
           textContent: sessionInputStats.textContent,
+          copyCount: sessionInputStats.copyCount,
+          pasteCount: sessionInputStats.pasteCount,
+          clipboardHistory: sessionInputStats.clipboardHistory,
         },
       })
     }
@@ -400,6 +403,9 @@ export class ActivityTracker {
           modifierKeyUsage: stats.modifierKeyUsage,
           periodSeconds: stats.periodSeconds,
           textContent: stats.textContent,
+          copyCount: stats.copyCount,
+          pasteCount: stats.pasteCount,
+          clipboardHistory: stats.clipboardHistory,
           appName: this.currentWindow?.app || 'Unknown',
         },
       })
