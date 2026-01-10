@@ -119,7 +119,7 @@ function createTray() {
 }
 
 function initializeServices() {
-  const apiUrl = store.get('apiUrl', 'http://localhost:5185/api') as string
+  const apiUrl = store.get('apiUrl', 'http://localhost:5000/api') as string
   const accessToken = store.get('accessToken', '') as string
   const excludedApps = store.get('excludedApps', []) as string[]
   const customCategories = store.get('customCategories') as AppCategory[] | undefined
@@ -151,162 +151,148 @@ function initializeServices() {
 }
 
 // ============================================
-// IPC Handlers - Authentication
+// IPC Handlers Setup - Must run after app is ready
 // ============================================
 
-ipcMain.handle('get-auth', () => ({
-  apiUrl: store.get('apiUrl', 'http://localhost:5185/api'),
-  accessToken: store.get('accessToken', ''),
-  refreshToken: store.get('refreshToken', ''),
-}))
+function setupIpcHandlers() {
+  // Authentication
+  ipcMain.handle('get-auth', () => ({
+    apiUrl: store.get('apiUrl', 'http://localhost:5000/api'),
+    accessToken: store.get('accessToken', ''),
+    refreshToken: store.get('refreshToken', ''),
+  }))
 
-ipcMain.handle('set-auth', (_, { apiUrl, accessToken, refreshToken }) => {
-  store.set('apiUrl', apiUrl)
-  store.set('accessToken', accessToken)
-  store.set('refreshToken', refreshToken)
+  ipcMain.handle('set-auth', (_, { apiUrl, accessToken, refreshToken }) => {
+    store.set('apiUrl', apiUrl)
+    store.set('accessToken', accessToken)
+    store.set('refreshToken', refreshToken)
 
-  if (syncService) {
-    syncService.updateAuth(apiUrl, accessToken)
-  }
+    if (syncService) {
+      syncService.updateAuth(apiUrl, accessToken)
+    }
 
-  if (accessToken && activityTracker && !activityTracker.isRunning()) {
-    activityTracker.start()
-    syncService?.start()
-  }
-})
+    if (accessToken && activityTracker && !activityTracker.isRunning()) {
+      activityTracker.start()
+      syncService?.start()
+    }
+  })
 
-ipcMain.handle('logout', () => {
-  store.delete('accessToken')
-  store.delete('refreshToken')
-  activityTracker?.stop()
-  syncService?.stop()
-})
+  ipcMain.handle('logout', () => {
+    store.delete('accessToken')
+    store.delete('refreshToken')
+    activityTracker?.stop()
+    syncService?.stop()
+  })
 
-// ============================================
-// IPC Handlers - Status & Control
-// ============================================
+  // Status & Control
+  ipcMain.handle('get-status', () => ({
+    isTracking: activityTracker?.isRunning() ?? false,
+    isPaused: activityTracker?.isPaused() ?? false,
+    pendingActivities: syncService?.getPendingCount() ?? 0,
+    lastSync: syncService?.getLastSyncTime() ?? null,
+    hasInputMonitoring: activityTracker?.hasInputMonitoring() ?? false,
+  }))
 
-ipcMain.handle('get-status', () => ({
-  isTracking: activityTracker?.isRunning() ?? false,
-  isPaused: activityTracker?.isPaused() ?? false,
-  pendingActivities: syncService?.getPendingCount() ?? 0,
-  lastSync: syncService?.getLastSyncTime() ?? null,
-  hasInputMonitoring: activityTracker?.hasInputMonitoring() ?? false,
-}))
+  ipcMain.handle('pause-tracking', () => {
+    activityTracker?.pause()
+  })
 
-ipcMain.handle('pause-tracking', () => {
-  activityTracker?.pause()
-})
+  ipcMain.handle('resume-tracking', () => {
+    activityTracker?.resume()
+  })
 
-ipcMain.handle('resume-tracking', () => {
-  activityTracker?.resume()
-})
+  ipcMain.handle('sync-now', async () => {
+    await syncService?.syncNow()
+  })
 
-ipcMain.handle('sync-now', async () => {
-  await syncService?.syncNow()
-})
+  // Statistics & Productivity
+  ipcMain.handle('get-statistics', (_, date?: string) => {
+    const targetDate = date ? new Date(date) : new Date()
+    return activityTracker?.getStatistics(targetDate) ?? null
+  })
 
-// ============================================
-// IPC Handlers - Statistics & Productivity
-// ============================================
+  ipcMain.handle('get-current-productivity', (_, windowMinutes?: number) => {
+    return activityTracker?.getCurrentProductivity(windowMinutes ?? 60) ?? 0
+  })
 
-ipcMain.handle('get-statistics', (_, date?: string) => {
-  const targetDate = date ? new Date(date) : new Date()
-  return activityTracker?.getStatistics(targetDate) ?? null
-})
+  ipcMain.handle('get-idle-state', () => {
+    return activityTracker?.getIdleState() ?? null
+  })
 
-ipcMain.handle('get-current-productivity', (_, windowMinutes?: number) => {
-  return activityTracker?.getCurrentProductivity(windowMinutes ?? 60) ?? 0
-})
+  ipcMain.handle('get-input-stats', () => {
+    return activityTracker?.getInputStats() ?? null
+  })
 
-ipcMain.handle('get-idle-state', () => {
-  return activityTracker?.getIdleState() ?? null
-})
+  ipcMain.handle('get-current-window', () => {
+    return activityTracker?.getCurrentWindow() ?? null
+  })
 
-ipcMain.handle('get-input-stats', () => {
-  return activityTracker?.getInputStats() ?? null
-})
+  // Categories & Settings
+  ipcMain.handle('get-categories', () => {
+    return activityTracker?.getCategories() ?? []
+  })
 
-ipcMain.handle('get-current-window', () => {
-  return activityTracker?.getCurrentWindow() ?? null
-})
+  ipcMain.handle('set-categories', (_, categories: AppCategory[]) => {
+    activityTracker?.setCategories(categories)
+    store.set('customCategories', categories)
+  })
 
-// ============================================
-// IPC Handlers - Categories & Settings
-// ============================================
+  ipcMain.handle('get-excluded-apps', () => {
+    return activityTracker?.getExcludedApps() ?? []
+  })
 
-ipcMain.handle('get-categories', () => {
-  return activityTracker?.getCategories() ?? []
-})
+  ipcMain.handle('set-excluded-apps', (_, apps: string[]) => {
+    activityTracker?.setExcludedApps(apps)
+    store.set('excludedApps', apps)
+  })
 
-ipcMain.handle('set-categories', (_, categories: AppCategory[]) => {
-  activityTracker?.setCategories(categories)
-  store.set('customCategories', categories)
-})
+  ipcMain.handle('get-idle-threshold', () => {
+    return activityTracker?.getIdleThreshold() ?? 300000
+  })
 
-ipcMain.handle('get-excluded-apps', () => {
-  return activityTracker?.getExcludedApps() ?? []
-})
+  ipcMain.handle('set-idle-threshold', (_, thresholdMs: number) => {
+    activityTracker?.setIdleThreshold(thresholdMs)
+    store.set('idleThreshold', thresholdMs)
+  })
 
-ipcMain.handle('set-excluded-apps', (_, apps: string[]) => {
-  activityTracker?.setExcludedApps(apps)
-  store.set('excludedApps', apps)
-})
+  // Permissions (macOS)
+  ipcMain.handle('get-permission-status', () => {
+    return activityTracker?.getPermissionStatus() ?? { accessibility: false, screenCapture: false }
+  })
 
-ipcMain.handle('get-idle-threshold', () => {
-  return activityTracker?.getIdleThreshold() ?? 300000
-})
+  ipcMain.handle('request-permissions', async () => {
+    return activityTracker?.requestPermissions() ?? { accessibility: false, screenCapture: false }
+  })
 
-ipcMain.handle('set-idle-threshold', (_, thresholdMs: number) => {
-  activityTracker?.setIdleThreshold(thresholdMs)
-  store.set('idleThreshold', thresholdMs)
-})
+  ipcMain.handle('get-input-monitor-status', () => {
+    return activityTracker?.hasInputMonitoring() ?? false
+  })
 
-// ============================================
-// IPC Handlers - Permissions (macOS)
-// ============================================
+  // Data Export
+  ipcMain.handle('export-data', () => {
+    return activityTracker?.exportData() ?? { sessions: [], inputStats: [], idlePeriods: [] }
+  })
 
-ipcMain.handle('get-permission-status', () => {
-  return activityTracker?.getPermissionStatus() ?? { accessibility: false, screenCapture: false }
-})
+  ipcMain.handle('get-screenshots-dir', () => {
+    return activityTracker?.getScreenshotsDir() ?? ''
+  })
 
-ipcMain.handle('request-permissions', async () => {
-  return activityTracker?.requestPermissions() ?? { accessibility: false, screenCapture: false }
-})
+  // Window Controls
+  ipcMain.handle('minimize-window', () => {
+    mainWindow?.minimize()
+  })
 
-ipcMain.handle('get-input-monitor-status', () => {
-  return activityTracker?.hasInputMonitoring() ?? false
-})
-
-// ============================================
-// IPC Handlers - Data Export
-// ============================================
-
-ipcMain.handle('export-data', () => {
-  return activityTracker?.exportData() ?? { sessions: [], inputStats: [], idlePeriods: [] }
-})
-
-ipcMain.handle('get-screenshots-dir', () => {
-  return activityTracker?.getScreenshotsDir() ?? ''
-})
-
-// ============================================
-// IPC Handlers - Window Controls
-// ============================================
-
-ipcMain.handle('minimize-window', () => {
-  mainWindow?.minimize()
-})
-
-ipcMain.handle('close-window', () => {
-  mainWindow?.hide()
-})
+  ipcMain.handle('close-window', () => {
+    mainWindow?.hide()
+  })
+}
 
 // ============================================
 // App Lifecycle
 // ============================================
 
 app.whenReady().then(() => {
+  setupIpcHandlers()
   createWindow()
   createTray()
   initializeServices()

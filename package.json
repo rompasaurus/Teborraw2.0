@@ -8,6 +8,13 @@
     "packages/*"
   ],
   "scripts": {
+    "setup": "python scripts/setup.py",
+    "start": "python scripts/run.py",
+    "start:all": "python scripts/run.py all",
+    "start:api": "python scripts/run.py api",
+    "start:web": "python scripts/run.py web",
+    "start:desktop": "python scripts/start-desktop.py",
+    "build:desktop:package": "python scripts/start-desktop.py package",
     "dev:web": "pnpm --filter @teboraw/web dev",
     "dev:desktop": "pnpm --filter @teboraw/desktop dev",
     "dev:mobile": "pnpm --filter @teboraw/mobile start",
@@ -16,13 +23,18 @@
     "build:desktop": "pnpm --filter @teboraw/desktop build",
     "build:extension": "pnpm --filter @teboraw/extension build",
     "build:api": "dotnet build apps/api/Teboraw.sln",
-    "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:stop": "python scripts/run.py stop",
     "clean": "pnpm -r clean"
   },
   "engines": {
     "node": ">=20.0.0",
     "pnpm": ">=9.0.0"
   },
-  "packageManager": "pnpm@9.15.0"
+  "packageManager": "pnpm@9.15.0",
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "rimraf": "^5.0.5"
+  }
 }

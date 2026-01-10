@@ -5,7 +5,8 @@
   "description": "Teboraw Desktop Activity Tracker",
   "main": "out/main/index.js",
   "scripts": {
-    "dev": "ELECTRON_RUN_AS_NODE= electron-vite dev",
+    "dev": "dev.bat",
+    "dev:unix": "unset ELECTRON_RUN_AS_NODE; electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "package": "electron-builder",
@@ -23,6 +24,7 @@
   "devDependencies": {
     "@electron/rebuild": "^3.6.0",
     "@types/node": "^22.10.2",
+    "cross-env": "^7.0.3",
     "electron": "^33.2.1",
     "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
