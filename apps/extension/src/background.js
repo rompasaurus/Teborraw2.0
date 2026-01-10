@@ -1,6 +1,6 @@
 // Teboraw Browser Extension - Background Service Worker
 
-const DEFAULT_API_URL = 'http://localhost:5000/api'
+const DEFAULT_API_URL = 'http://localhost:5185/api'
 const SYNC_INTERVAL_MINUTES = 1
 const SEARCH_ENGINES = {
   'google.com': /[?&]q=([^&]+)/,
@@ -283,7 +283,40 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     syncActivities().then(() => sendResponse({ success: true }))
     return true
   }
+
+  if (message.type === 'PAGE_CONTENT') {
+    handlePageContent(message.data).then(sendResponse)
+    return true
+  }
 })
+
+async function handlePageContent(contentData) {
+  if (!isAuthenticated) return { success: false }
+
+  // Create a PageVisit activity with captured content
+  const activity = {
+    type: 'PageVisit',
+    source: 'Browser',
+    timestamp: contentData.capturedAt,
+    data: {
+      url: contentData.url,
+      title: contentData.title,
+      domain: getDomain(contentData.url),
+      metadata: contentData.metadata,
+      mainContent: contentData.mainContent,
+      sections: contentData.sections,
+      totalLength: contentData.totalLength,
+      sectionCount: contentData.sectionCount,
+    },
+  }
+
+  pendingActivities.push(activity)
+  await chrome.storage.local.set({ pendingActivities })
+
+  console.log(`📄 Stored page content: ${contentData.totalLength} chars from ${contentData.url}`)
+
+  return { success: true }
+}
 
 async function handleLogin({ apiUrl, email, password }) {
   try {

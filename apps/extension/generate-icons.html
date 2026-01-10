@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate Icons</title>
+</head>
+<body>
+    <h2>Icon Generator - Right-click each canvas and "Save image as..."</h2>
+    <div id="icons"></div>
+
+    <script>
+        const sizes = [16, 32, 48, 128];
+        const color = '#3b82f6';
+
+        sizes.forEach(size => {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+
+            const ctx = canvas.getContext('2d');
+
+            // Background
+            ctx.fillStyle = color;
+            ctx.fillRect(0, 0, size, size);
+
+            // Text
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${Math.floor(size * 0.6)}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('T', size / 2, size / 2);
+
+            // Add to page
+            const container = document.createElement('div');
+            container.style.margin = '10px';
+            container.innerHTML = `<p>icon${size}.png</p>`;
+            container.appendChild(canvas);
+
+            // Add download link
+            const link = document.createElement('a');
+            link.download = `icon${size}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.textContent = 'Download';
+            link.style.display = 'block';
+            container.appendChild(link);
+
+            document.getElementById('icons').appendChild(container);
+        });
+    </script>
+</body>
+</html>

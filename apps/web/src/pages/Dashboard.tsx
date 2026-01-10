@@ -374,6 +374,70 @@ export function Dashboard() {
               <p className="text-sm text-white">{data.durationSeconds}s</p>
             </div>
           )}
+          {/* Metadata */}
+          {data.metadata && (
+            <div className="mt-3 pt-3 border-t border-slate-700">
+              <p className="text-xs font-medium text-slate-400 mb-2">Page Metadata</p>
+              <div className="space-y-1">
+                {data.metadata.description && (
+                  <div>
+                    <span className="text-xs text-slate-500">Description:</span>
+                    <p className="text-xs text-slate-300">{data.metadata.description}</p>
+                  </div>
+                )}
+                {data.metadata.author && (
+                  <div>
+                    <span className="text-xs text-slate-500">Author:</span>
+                    <p className="text-xs text-slate-300">{data.metadata.author}</p>
+                  </div>
+                )}
+                {data.metadata.keywords && (
+                  <div>
+                    <span className="text-xs text-slate-500">Keywords:</span>
+                    <p className="text-xs text-slate-300">{data.metadata.keywords}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          {/* Main Content */}
+          {data.mainContent && (
+            <div className="mt-3 pt-3 border-t border-slate-700">
+              <p className="text-xs font-medium text-slate-400 mb-2">
+                Page Content ({data.totalLength?.toLocaleString() || data.mainContent.length.toLocaleString()} characters)
+              </p>
+              <div className="bg-slate-900 p-3 rounded border border-slate-700 max-h-96 overflow-y-auto">
+                <p className="text-xs text-slate-300 whitespace-pre-wrap break-words">
+                  {data.mainContent}
+                </p>
+              </div>
+            </div>
+          )}
+          {/* Scroll Sections */}
+          {data.sections && data.sections.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-slate-700">
+              <p className="text-xs font-medium text-slate-400 mb-2">
+                Captured Sections ({data.sectionCount || data.sections.length})
+              </p>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {data.sections.map((section: any, idx: number) => (
+                  <div key={idx} className="bg-slate-900 p-3 rounded border border-slate-700">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs text-slate-500">
+                        Scroll Position: {section.scrollPosition}px
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        {new Date(section.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 line-clamp-3">
+                      {section.text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )
     }
