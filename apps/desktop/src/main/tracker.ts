@@ -117,14 +117,32 @@ export class ActivityTracker {
     const permStatus = this.permissions.getPermissionStatus()
 
     if (!permStatus.accessibility) {
-      console.log('Accessibility permission not granted, requesting...')
+      console.warn('⚠️  Accessibility permission not granted')
+      console.warn('   Activity tracking requires Accessibility permission on macOS')
+      console.warn('   Please go to: System Settings > Privacy & Security > Accessibility')
+      console.warn('   Add the app and enable the checkbox')
+      console.warn('')
+      console.warn('   Attempting to request permission...')
       await this.permissions.requestAccessibilityPermission()
+
+      // Check again after request
+      const updatedStatus = this.permissions.getPermissionStatus()
+      if (!updatedStatus.accessibility) {
+        console.error('❌ Accessibility permission still not granted')
+        console.error('   The app will not be able to track window activity')
+        console.error('   Please manually grant permission and restart the app')
+      }
+    }
+
+    if (!permStatus.screenCapture) {
+      console.warn('⚠️  Screen Recording permission not granted')
+      console.warn('   Screenshots will not be captured')
     }
 
     // Start input monitoring
     this.inputMonitorEnabled = this.inputMonitor.start()
     if (!this.inputMonitorEnabled) {
-      console.warn('Input monitor failed to start, idle detection may be less accurate')
+      console.warn('⚠️  Input monitor failed to start, idle detection may be less accurate')
     }
 
     // Start idle detection
@@ -153,8 +171,10 @@ export class ActivityTracker {
       aggregationInterval
     )
 
-    console.log('Activity tracker started')
-    console.log(`Input monitor enabled: ${this.inputMonitorEnabled}`)
+    console.log('✅ Activity tracker started')
+    console.log(`   Input monitor enabled: ${this.inputMonitorEnabled}`)
+    console.log(`   Accessibility permission: ${permStatus.accessibility ? '✅' : '❌'}`)
+    console.log(`   Screen Recording permission: ${permStatus.screenCapture ? '✅' : '❌'}`)
   }
 
   stop(): void {
@@ -266,6 +286,7 @@ export class ActivityTracker {
           mouseClicks: sessionInputStats.mouseClicks,
           wordsTyped: sessionInputStats.wordsTyped,
           avgTypingSpeed: sessionInputStats.avgTypingSpeed,
+          textContent: sessionInputStats.textContent,
         },
       })
     }
@@ -303,7 +324,24 @@ export class ActivityTracker {
         this.currentWindow = { app, title }
       }
     } catch (error) {
-      console.error('Error tracking activity:', error)
+      // Check for specific permission-related errors on macOS
+      if (process.platform === 'darwin') {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        if (errorMessage.includes('Command failed') || errorMessage.includes('active-win')) {
+          console.error('Error tracking activity: Accessibility permission may not be granted.')
+          console.error('Please grant Accessibility permission in System Settings > Privacy & Security > Accessibility')
+          console.error('You may need to restart the app after granting permission.')
+          // Stop trying to track if permissions aren't granted
+          if (this.activityTimer) {
+            clearInterval(this.activityTimer)
+            this.activityTimer = null
+          }
+        } else {
+          console.error('Error tracking activity:', error)
+        }
+      } else {
+        console.error('Error tracking activity:', error)
+      }
     }
   }
 
@@ -361,6 +399,7 @@ export class ActivityTracker {
           scrollDistance: stats.scrollDistance,
           modifierKeyUsage: stats.modifierKeyUsage,
           periodSeconds: stats.periodSeconds,
+          textContent: stats.textContent,
           appName: this.currentWindow?.app || 'Unknown',
         },
       })

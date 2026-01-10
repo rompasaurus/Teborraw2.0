@@ -15,6 +15,72 @@ let tray: Tray | null = null
 let activityTracker: ActivityTracker | null = null
 let syncService: SyncService | null = null
 
+function createApplicationMenu() {
+  const template: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        {
+          label: 'Preferences...',
+          accelerator: 'CmdOrCtrl+,',
+          click: () => mainWindow?.show(),
+        },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        {
+          label: 'Quit',
+          accelerator: 'CmdOrCtrl+Q',
+          click: () => {
+            isQuitting = true
+            app.quit()
+          },
+        },
+      ],
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' },
+      ],
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+      ],
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'zoom' },
+        { type: 'separator' },
+        { role: 'front' },
+      ],
+    },
+  ]
+
+  const menu = Menu.buildFromTemplate(template)
+  Menu.setApplicationMenu(menu)
+}
+
 function createWindow() {
   const preloadPath = path.join(__dirname, '../preload/index.js')
   console.log('Preload path:', preloadPath)
@@ -26,6 +92,7 @@ function createWindow() {
     show: false,
     frame: false,
     resizable: false,
+    skipTaskbar: false, // Show in dock/taskbar for easier force quit
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,
@@ -118,7 +185,7 @@ function createTray() {
   setInterval(updateTrayMenu, 5000)
 }
 
-function initializeServices() {
+async function initializeServices() {
   const apiUrl = store.get('apiUrl', 'http://localhost:5000/api') as string
   const accessToken = store.get('accessToken', '') as string
   const excludedApps = store.get('excludedApps', []) as string[]
@@ -144,8 +211,11 @@ function initializeServices() {
     store,
   })
 
+  // Always start the tracker (it will handle permission requests)
+  // This ensures the permission dialog is shown even without auth
+  await activityTracker.start()
+
   if (accessToken) {
-    activityTracker.start()
     syncService.start()
   }
 }
@@ -293,14 +363,16 @@ function setupIpcHandlers() {
 
 app.whenReady().then(() => {
   setupIpcHandlers()
+  createApplicationMenu()
   createWindow()
   createTray()
   initializeServices()
 })
 
 app.on('window-all-closed', () => {
-  // Don't quit on macOS
-  if (process.platform !== 'darwin') {
+  // On macOS, apps stay in menu bar even when window is closed
+  // But allow quitting if isQuitting flag is set
+  if (process.platform !== 'darwin' || isQuitting) {
     app.quit()
   }
 })

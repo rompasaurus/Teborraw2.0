@@ -2,21 +2,25 @@ import { EventEmitter } from 'events'
 import { InputStats } from './types'
 
 /**
- * InputMonitor - Keyboard/Mouse activity tracking (STUB)
+ * InputMonitor - Keyboard/Mouse activity tracking
  *
- * NOTE: uiohook-napi has been disabled because it crashes on macOS
- * during native module initialization, even before start() is called.
- * This appears to be a compatibility issue with Electron 33 and/or
- * missing Accessibility permissions.
- *
- * The app will work without keystroke/mouse tracking - window focus
- * tracking and screenshots still work.
- *
- * To re-enable in the future:
- * 1. Grant Accessibility permissions in System Preferences BEFORE launching
- * 2. Rebuild uiohook-napi: pnpm rebuild uiohook-napi
- * 3. Test with a simple script first to verify it works
+ * Tracks keyboard and mouse input using uIOhook-napi
  */
+
+let uIOhook: any = null
+let uIOhookAvailable = false
+
+// Try to load uIOhook-napi
+try {
+  const uIOhookModule = require('uIOhook-napi')
+  uIOhook = uIOhookModule.uIOhook
+  uIOhookAvailable = true
+  console.log('✅ uIOhook-napi loaded successfully')
+} catch (error) {
+  console.warn('⚠️  uIOhook-napi failed to load:', error)
+  console.warn('   Input monitoring will be disabled')
+  console.warn('   Ensure Accessibility permissions are granted before launching the app')
+}
 
 export class InputMonitor extends EventEmitter {
   private running: boolean = false
@@ -24,7 +28,7 @@ export class InputMonitor extends EventEmitter {
   private lastMouseActivity: Date = new Date()
   private periodStartTime: Date = new Date()
 
-  // Stub counters (always zero since monitoring is disabled)
+  // Input counters
   private keystrokeCount: number = 0
   private wordCount: number = 0
   private mouseClicks = { left: 0, right: 0, middle: 0 }
@@ -32,20 +36,73 @@ export class InputMonitor extends EventEmitter {
   private scrollDistance: number = 0
   private modifierUsage = { shift: 0, ctrl: 0, alt: 0, meta: 0 }
 
+  // For tracking mouse position
+  private lastMouseX: number = 0
+  private lastMouseY: number = 0
+
+  // For calculating words typed
+  private lastKeypressTime: number = 0
+  private wordBoundaryKeysSeen: boolean = false
+
+  // Buffer for capturing typed text
+  private textBuffer: string = ''
+  private readonly maxBufferSize: number = 10000 // Max characters to store
+
   constructor() {
     super()
-    console.log('InputMonitor: Created (monitoring disabled - uiohook unavailable)')
+    if (uIOhookAvailable) {
+      console.log('InputMonitor: Created with uIOhook-napi')
+    } else {
+      console.log('InputMonitor: Created without input monitoring (uIOhook unavailable)')
+    }
   }
 
   start(): boolean {
-    console.warn('InputMonitor: Input monitoring is disabled (uiohook-napi crashes on load)')
-    console.warn('InputMonitor: Window focus tracking and screenshots still work')
-    this.running = false
-    return false
+    if (!uIOhookAvailable) {
+      console.warn('InputMonitor: Cannot start - uIOhook-napi not available')
+      return false
+    }
+
+    if (this.running) {
+      console.log('InputMonitor: Already running')
+      return true
+    }
+
+    try {
+      // Set up event handlers
+      uIOhook.on('keydown', this.handleKeyDown.bind(this))
+      uIOhook.on('mousedown', this.handleMouseDown.bind(this))
+      uIOhook.on('mousemove', this.handleMouseMove.bind(this))
+      uIOhook.on('wheel', this.handleWheel.bind(this))
+
+      // Start the hook
+      uIOhook.start()
+      this.running = true
+      this.periodStartTime = new Date()
+
+      console.log('✅ InputMonitor started')
+      return true
+    } catch (error) {
+      console.error('❌ Failed to start InputMonitor:', error)
+      console.error('   Make sure Accessibility permissions are granted')
+      this.running = false
+      return false
+    }
   }
 
   stop(): void {
-    this.running = false
+    if (!uIOhookAvailable || !this.running) {
+      this.running = false
+      return
+    }
+
+    try {
+      uIOhook.stop()
+      this.running = false
+      console.log('InputMonitor stopped')
+    } catch (error) {
+      console.error('Error stopping InputMonitor:', error)
+    }
   }
 
   isRunning(): boolean {
@@ -53,7 +110,179 @@ export class InputMonitor extends EventEmitter {
   }
 
   isAvailable(): boolean {
-    return false
+    return uIOhookAvailable
+  }
+
+  private handleKeyDown(event: any): void {
+    this.lastKeyActivity = new Date()
+    this.keystrokeCount++
+
+    // Capture typed characters
+    const char = this.keycodeToChar(event.keycode, event.shiftKey)
+    if (char !== null) {
+      // Handle backspace
+      if (event.keycode === 14 && this.textBuffer.length > 0) {
+        this.textBuffer = this.textBuffer.slice(0, -1)
+      } else if (char !== '') {
+        // Add character to buffer
+        this.textBuffer += char
+
+        // Enforce max buffer size
+        if (this.textBuffer.length > this.maxBufferSize) {
+          this.textBuffer = this.textBuffer.slice(-this.maxBufferSize)
+        }
+      }
+    }
+
+    // Calculate words typed (approximate)
+    // A "word" is roughly every 5 keystrokes, or when space/enter is pressed
+    const isWordBoundary = event.keycode === 57 || event.keycode === 28 // Space or Enter
+    if (isWordBoundary) {
+      this.wordCount++
+      this.wordBoundaryKeysSeen = true
+    } else {
+      // Count a word for every 5 keystrokes if no word boundaries detected
+      if (!this.wordBoundaryKeysSeen && this.keystrokeCount % 5 === 0) {
+        this.wordCount++
+      }
+    }
+
+    // Track modifier key usage
+    if (event.shiftKey) this.modifierUsage.shift++
+    if (event.ctrlKey) this.modifierUsage.ctrl++
+    if (event.altKey) this.modifierUsage.alt++
+    if (event.metaKey) this.modifierUsage.meta++
+
+    this.lastKeypressTime = Date.now()
+    this.emit('keydown', event)
+  }
+
+  private handleMouseDown(event: any): void {
+    this.lastMouseActivity = new Date()
+
+    // Track click by button (button: 1=left, 2=right, 3=middle)
+    if (event.button === 1) {
+      this.mouseClicks.left++
+    } else if (event.button === 2) {
+      this.mouseClicks.right++
+    } else if (event.button === 3) {
+      this.mouseClicks.middle++
+    }
+
+    this.emit('mousedown', event)
+  }
+
+  private handleMouseMove(event: any): void {
+    this.lastMouseActivity = new Date()
+
+    // Calculate distance moved
+    if (this.lastMouseX !== 0 || this.lastMouseY !== 0) {
+      const dx = event.x - this.lastMouseX
+      const dy = event.y - this.lastMouseY
+      const distance = Math.sqrt(dx * dx + dy * dy)
+      this.mouseDistance += distance
+    }
+
+    this.lastMouseX = event.x
+    this.lastMouseY = event.y
+
+    this.emit('mousemove', event)
+  }
+
+  private handleWheel(event: any): void {
+    this.lastMouseActivity = new Date()
+
+    // Track scroll distance (amount is in "clicks", approximate to pixels)
+    const scrollAmount = Math.abs(event.amount || 0) * 100 // Approximate pixels per scroll
+    this.scrollDistance += scrollAmount
+
+    this.emit('wheel', event)
+  }
+
+  /**
+   * Convert uIOhook keycode to character
+   * Returns null for non-character keys (modifiers, function keys, etc.)
+   */
+  private keycodeToChar(keycode: number, shiftKey: boolean): string | null {
+    // Backspace
+    if (keycode === 14) return ''
+
+    // Number row (0-9)
+    const numberKeys: { [key: number]: [string, string] } = {
+      2: ['1', '!'],
+      3: ['2', '@'],
+      4: ['3', '#'],
+      5: ['4', '$'],
+      6: ['5', '%'],
+      7: ['6', '^'],
+      8: ['7', '&'],
+      9: ['8', '*'],
+      10: ['9', '('],
+      11: ['0', ')'],
+    }
+
+    if (numberKeys[keycode]) {
+      return shiftKey ? numberKeys[keycode][1] : numberKeys[keycode][0]
+    }
+
+    // Letter keys (A-Z) - keycodes 16-25 (QWERTY top row), 30-38 (middle row), 44-50 (bottom row)
+    const letterKeys: { [key: number]: string } = {
+      16: 'q',
+      17: 'w',
+      18: 'e',
+      19: 'r',
+      20: 't',
+      21: 'y',
+      22: 'u',
+      23: 'i',
+      24: 'o',
+      25: 'p',
+      30: 'a',
+      31: 's',
+      32: 'd',
+      33: 'f',
+      34: 'g',
+      35: 'h',
+      36: 'j',
+      37: 'k',
+      38: 'l',
+      44: 'z',
+      45: 'x',
+      46: 'c',
+      47: 'v',
+      48: 'b',
+      49: 'n',
+      50: 'm',
+    }
+
+    if (letterKeys[keycode]) {
+      return shiftKey ? letterKeys[keycode].toUpperCase() : letterKeys[keycode]
+    }
+
+    // Special characters
+    const specialKeys: { [key: number]: [string, string] } = {
+      12: ['-', '_'],
+      13: ['=', '+'],
+      26: ['[', '{'],
+      27: [']', '}'],
+      43: ['\\', '|'],
+      39: [';', ':'],
+      40: ["'", '"'],
+      41: ['`', '~'],
+      51: [',', '<'],
+      52: ['.', '>'],
+      53: ['/', '?'],
+      57: [' ', ' '], // Space
+      28: ['\n', '\n'], // Enter
+      15: ['\t', '\t'], // Tab
+    }
+
+    if (specialKeys[keycode]) {
+      return shiftKey ? specialKeys[keycode][1] : specialKeys[keycode][0]
+    }
+
+    // Non-character keys (modifiers, function keys, arrows, etc.)
+    return null
   }
 
   getLastActivityTime(): Date {
@@ -73,27 +302,49 @@ export class InputMonitor extends EventEmitter {
   // Get current stats without resetting
   getCurrentStats(): InputStats {
     const now = new Date()
-    const periodSeconds = Math.max(1, Math.floor((now.getTime() - this.periodStartTime.getTime()) / 1000))
+    const periodSeconds = Math.max(
+      1,
+      Math.floor((now.getTime() - this.periodStartTime.getTime()) / 1000)
+    )
+
+    // Calculate WPM (Words Per Minute)
+    const avgTypingSpeed =
+      periodSeconds > 0 ? Math.round((this.wordCount / periodSeconds) * 60) : 0
+
+    const totalClicks =
+      this.mouseClicks.left + this.mouseClicks.right + this.mouseClicks.middle
 
     return {
-      keystrokeCount: 0,
-      wordsTyped: 0,
-      avgTypingSpeed: 0,
-      mouseClicks: 0,
-      mouseClicksByButton: { left: 0, right: 0, middle: 0 },
-      mouseDistance: 0,
-      scrollDistance: 0,
-      modifierKeyUsage: { shift: 0, ctrl: 0, alt: 0, meta: 0 },
+      keystrokeCount: this.keystrokeCount,
+      wordsTyped: this.wordCount,
+      avgTypingSpeed,
+      mouseClicks: totalClicks,
+      mouseClicksByButton: { ...this.mouseClicks },
+      mouseDistance: Math.round(this.mouseDistance),
+      scrollDistance: Math.round(this.scrollDistance),
+      modifierKeyUsage: { ...this.modifierUsage },
       periodStartTime: this.periodStartTime,
       periodEndTime: now,
       periodSeconds,
+      textContent: this.textBuffer,
     }
   }
 
   // Get stats and reset counters
   getStatsAndReset(): InputStats {
     const stats = this.getCurrentStats()
+
+    // Reset counters
+    this.keystrokeCount = 0
+    this.wordCount = 0
+    this.mouseClicks = { left: 0, right: 0, middle: 0 }
+    this.mouseDistance = 0
+    this.scrollDistance = 0
+    this.modifierUsage = { shift: 0, ctrl: 0, alt: 0, meta: 0 }
+    this.textBuffer = ''
     this.periodStartTime = new Date()
+    this.wordBoundaryKeysSeen = false
+
     return stats
   }
 }

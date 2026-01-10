@@ -20,7 +20,8 @@ public enum ActivityType
     AudioRecording,
     Thought,
     IdleStart,
-    IdleEnd
+    IdleEnd,
+    InputActivity
 }
 
 public class Activity : BaseEntity

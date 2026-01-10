@@ -37,6 +37,7 @@ export interface InputStats {
   periodStartTime: Date
   periodEndTime: Date
   periodSeconds: number
+  textContent?: string // Captured text content for personal tracking
 }
 
 // Idle detection state

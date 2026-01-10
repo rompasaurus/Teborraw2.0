@@ -32,7 +32,14 @@ export class SyncService {
 
     // Load pending activities from store
     this.pendingActivities = options.store.get('pendingActivities', []) as Activity[]
-    this.lastSyncTime = options.store.get('lastSyncTime', null) as Date | null
+
+    // Load lastSyncTime and convert from string to Date if needed
+    const storedLastSync = options.store.get('lastSyncTime', null)
+    if (storedLastSync) {
+      this.lastSyncTime = typeof storedLastSync === 'string' ? new Date(storedLastSync) : storedLastSync as Date
+    } else {
+      this.lastSyncTime = null
+    }
   }
 
   private getOrCreateDeviceId(): string {
@@ -109,11 +116,19 @@ export class SyncService {
 
     const activitiesToSync = [...this.pendingActivities]
 
+    // Ensure lastSyncTime is a Date object
+    let lastSyncTimestamp: string
+    if (this.lastSyncTime instanceof Date && !isNaN(this.lastSyncTime.getTime())) {
+      lastSyncTimestamp = this.lastSyncTime.toISOString()
+    } else {
+      lastSyncTimestamp = new Date(0).toISOString()
+    }
+
     try {
       const response = await this.api.post('/activities/sync', {
         deviceId: this.deviceId,
         activities: activitiesToSync,
-        lastSyncTimestamp: this.lastSyncTime?.toISOString() ?? new Date(0).toISOString(),
+        lastSyncTimestamp,
       })
 
       if (response.data.success) {
@@ -129,6 +144,13 @@ export class SyncService {
       }
     } catch (error) {
       console.error('Sync failed:', error)
+
+      // Log detailed error information for debugging
+      if (axios.isAxiosError(error)) {
+        console.error('Response status:', error.response?.status)
+        console.error('Response data:', error.response?.data)
+        console.error('Request data sample:', JSON.stringify(activitiesToSync[0], null, 2))
+      }
 
       // If unauthorized, token might be expired
       if (axios.isAxiosError(error) && error.response?.status === 401) {

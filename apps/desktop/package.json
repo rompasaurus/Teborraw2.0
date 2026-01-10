@@ -11,8 +11,7 @@
     "preview": "electron-vite preview",
     "package": "electron-builder",
     "typecheck": "tsc --noEmit",
-    "postinstall": "electron-rebuild",
-    "rebuild": "electron-rebuild -f -w uiohook-napi"
+    "rebuild": "electron-rebuild -f -w active-win,uiohook-napi,screenshot-desktop"
   },
   "dependencies": {
     "active-win": "^8.1.0",

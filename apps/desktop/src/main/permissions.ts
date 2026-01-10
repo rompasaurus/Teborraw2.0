@@ -26,24 +26,55 @@ export class PermissionsManager {
       return true
     }
 
-    // Prompt user to enable in System Preferences
+    // Try to trigger the system prompt by attempting to use accessibility features
+    // This is necessary because macOS only shows the prompt when an app actually tries to use the feature
+    try {
+      // Import active-win dynamically to trigger permission check
+      const activeWin = await import('active-win')
+      // Attempt to get the active window - this will trigger the system permission prompt
+      await activeWin.default()
+    } catch (error) {
+      // Expected to fail without permission, but this attempt triggers the system prompt
+      console.log('Attempted to access active window (triggering permission prompt if needed)')
+    }
+
+    // Give macOS a moment to show the system prompt
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    // Now check again with prompt flag
+    const isTrusted = systemPreferences.isTrustedAccessibilityClient(true)
+
+    if (isTrusted) {
+      return true
+    }
+
+    // If still not trusted, show our own dialog to guide the user
     const result = await dialog.showMessageBox({
-      type: 'info',
+      type: 'warning',
       title: 'Accessibility Permission Required',
-      message: 'Teboraw needs Accessibility permission to track keyboard and mouse activity.',
+      message: 'Teboraw needs Accessibility permission to track window activity.',
       detail:
-        'This is required for accurate activity tracking and idle detection.\n\nClick "Open Settings" to grant permission in System Settings > Privacy & Security > Accessibility.',
-      buttons: ['Open Settings', 'Later'],
+        'To enable activity tracking:\n\n' +
+        '1. macOS should have just shown you a system dialog\n' +
+        '2. If you missed it, click "Open System Settings" below\n' +
+        '3. Find "Electron" in the Accessibility list\n' +
+        '4. Enable the checkbox next to it\n' +
+        '5. Restart this application (press Cmd+Q to quit)\n\n' +
+        'Without this permission, the app cannot detect which window is active.',
+      buttons: ['Open System Settings', 'Quit App', 'Continue Anyway'],
       defaultId: 0,
+      cancelId: 2,
     })
 
     if (result.response === 0) {
-      // Trigger the system prompt (this shows the app in the list)
-      systemPreferences.isTrustedAccessibilityClient(true)
-      // Open System Preferences to the Accessibility pane
+      // Open System Settings to the Accessibility pane
       shell.openExternal(
         'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'
       )
+    } else if (result.response === 1) {
+      // User chose to quit
+      const { app } = require('electron')
+      app.quit()
     }
 
     return false
@@ -65,13 +96,19 @@ export class PermissionsManager {
     }
 
     const result = await dialog.showMessageBox({
-      type: 'info',
+      type: 'warning',
       title: 'Screen Recording Permission Required',
       message: 'Teboraw needs Screen Recording permission to capture screenshots.',
       detail:
-        'This allows automatic screenshot capture for activity tracking.\n\nClick "Open Settings" to grant permission in System Settings > Privacy & Security > Screen Recording.',
-      buttons: ['Open Settings', 'Later'],
+        'To enable screenshot capture:\n\n' +
+        '1. Click "Open System Settings" below\n' +
+        '2. Find "Electron" or "Teboraw" in the list\n' +
+        '3. Enable the checkbox next to it\n' +
+        '4. Restart this application\n\n' +
+        'The app will continue to work without this, but screenshots will not be captured.',
+      buttons: ['Open System Settings', 'Skip for Now'],
       defaultId: 0,
+      cancelId: 1,
     })
 
     if (result.response === 0) {

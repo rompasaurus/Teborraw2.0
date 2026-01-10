@@ -54,7 +54,17 @@
       "Bash(cmd /c \"dir \"%APPDATA%\" /b\")",
       "Bash(cmd /c \"echo %APPDATA%\")",
       "Bash(set APPDATA)",
-      "Bash(dir C:Users%USERNAME%AppDataRoaming*teboraw* /b)"
+      "Bash(dir C:Users%USERNAME%AppDataRoaming*teboraw* /b)",
+      "Bash(node --version:*)",
+      "Bash(pnpm electron-rebuild:*)",
+      "Bash(npm config set:*)",
+      "Bash(npm config:*)",
+      "Bash(PYTHON=/opt/homebrew/bin/python3.11 pnpm rebuild:*)",
+      "Bash(PYTHON=/opt/homebrew/bin/python3.11 pnpm run:*)",
+      "Bash(pnpm rebuild:*)",
+      "Bash(tccutil status:*)",
+      "Bash(readlink:*)",
+      "Bash(pnpm run dev:*)"
     ]
   }
 }
