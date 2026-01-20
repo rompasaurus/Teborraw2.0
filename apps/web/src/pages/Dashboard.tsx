@@ -93,11 +93,13 @@ export function Dashboard() {
     }
   }, [dateRange])
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['activities', selectedSources, selectedTypes, startDate, endDate],
+  const [pageSize, setPageSize] = useState(500)
+
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ['activities', selectedSources, selectedTypes, startDate, endDate, pageSize],
     queryFn: () =>
       activitiesApi.list({
-        pageSize: 100,
+        pageSize,
         sources: selectedSources.length > 0 ? selectedSources : undefined,
         types: selectedTypes.length > 0 ? selectedTypes : undefined,
         startDate,
@@ -859,9 +861,24 @@ export function Dashboard() {
             <h2 className="text-lg font-semibold text-white">
               Activity Timeline
             </h2>
-            <span className="text-sm text-slate-400">
-              {filteredAndSortedActivities.length} activities
-            </span>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-slate-400">
+                {filteredAndSortedActivities.length} of {data?.data?.totalCount ?? 0} activities
+              </span>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="input text-sm py-1"
+              >
+                <option value={100}>100</option>
+                <option value={250}>250</option>
+                <option value={500}>500</option>
+                <option value={1000}>1,000</option>
+                <option value={2500}>2,500</option>
+                <option value={5000}>5,000</option>
+              </select>
+              {isFetching && <span className="text-xs text-slate-500">Loading...</span>}
+            </div>
           </div>
 
           {isLoading ? (

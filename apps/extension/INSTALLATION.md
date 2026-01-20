@@ -93,6 +93,107 @@ Once installed and authenticated, the extension automatically tracks:
 - Detects when you go idle or lock your computer
 - Tracks when you return to active browsing
 
+## Debugging Connection Issues
+
+If the extension randomly stops working or loses connection, follow these steps to diagnose the issue.
+
+### Step 1: View Debug Logs
+
+The extension now includes comprehensive logging. To view logs:
+
+1. **Service Worker (Background) Logs:**
+   - Go to `chrome://extensions`
+   - Find Teboraw extension
+   - Click "service worker" link under "Inspect views"
+   - Look for messages prefixed with `[Teboraw BG]`
+
+2. **Content Script Logs:**
+   - Open any webpage
+   - Press F12 to open DevTools
+   - Go to Console tab
+   - Look for messages prefixed with `[Teboraw CS]`
+
+3. **Popup Logs:**
+   - Right-click the extension icon
+   - Select "Inspect popup"
+   - Look for messages prefixed with `[Teboraw Popup]`
+
+### Step 2: Use the Debug Button
+
+1. Click the extension icon in toolbar
+2. Click the "Debug Info (F12)" button at the bottom
+3. Open DevTools (F12) and check Console tab
+4. You'll see a complete state dump including:
+   - Authentication status
+   - Connection status
+   - Pending activities count
+   - Stored tokens (presence, not values)
+   - Alarm schedules
+   - Current tab being tracked
+
+### Step 3: Common Issues and Solutions
+
+**Service Worker Unloading:**
+- Chrome may unload the service worker when idle
+- The extension now auto-recovers state when waking up
+- Look for log: `Service worker woke up - reinitializing state`
+
+**Token Expiration:**
+- Tokens are automatically refreshed on 401 errors
+- Health checks run every 5 minutes to validate tokens
+- If refresh fails, you'll need to re-login
+- Look for logs: `Token expired`, `Attempting token refresh`
+
+**Network Disconnection:**
+- Check `connectionStatus` in debug info
+- Extension retries sync on next alarm (every minute)
+- Pending activities are preserved locally
+
+**State Mismatch:**
+- If `isAuthenticated` is true but tokens are missing
+- Extension validates and auto-corrects on next operation
+- Look for: `accessToken missing from storage (state mismatch)`
+
+### Step 4: Force Recovery
+
+If the extension seems stuck:
+
+1. **Force Health Check:**
+   - Open popup, check if connection status updates
+   - The popup auto-refreshes every 10 seconds
+
+2. **Manual Sync:**
+   - Click "Sync Now" in popup
+   - Check console for sync results
+
+3. **Reload Extension:**
+   - Go to `chrome://extensions`
+   - Click reload button on Teboraw
+   - Check service worker logs for initialization
+
+4. **Clear and Re-login:**
+   - Click "Logout" in popup
+   - Log back in with credentials
+   - This resets all tokens
+
+### Log Message Reference
+
+Key log messages to look for:
+
+| Message | Meaning |
+|---------|---------|
+| `Extension installed/updated` | Fresh install or update |
+| `Browser startup detected` | Chrome started |
+| `Service worker activated` | Worker woke from idle |
+| `State initialized` | Successfully loaded state from storage |
+| `Authentication validated successfully` | Token is valid |
+| `Token expired during validation` | Need to refresh |
+| `Token refresh successful` | Got new tokens |
+| `Token refresh failed` | Must re-login |
+| `Sync successful` | Data sent to server |
+| `Sync failed (network error)` | Can't reach server |
+| `Health check complete` | Periodic validation done |
+
 ## Troubleshooting
 
 ### Extension Won't Load

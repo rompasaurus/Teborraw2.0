@@ -4,11 +4,37 @@
 const LINGER_THRESHOLD_MS = 5000 // 5 seconds of no scroll = lingering
 const SCROLL_CAPTURE_DELAY_MS = 2000 // Wait 2 seconds after scrolling stops
 const MAX_TEXT_LENGTH = 50000 // Max characters to capture per page
+const MESSAGE_RETRY_ATTEMPTS = 3
+const MESSAGE_RETRY_DELAY_MS = 1000
 
+// =============================================================================
+// DEBUG LOGGING
+// =============================================================================
+const DEBUG = true
+const LOG_PREFIX = '[Teboraw CS]'
+
+function log(...args) {
+  if (DEBUG) console.log(LOG_PREFIX, new Date().toISOString(), ...args)
+}
+
+function logError(...args) {
+  console.error(LOG_PREFIX, new Date().toISOString(), 'ERROR:', ...args)
+}
+
+function logWarn(...args) {
+  if (DEBUG) console.warn(LOG_PREFIX, new Date().toISOString(), 'WARN:', ...args)
+}
+
+// =============================================================================
+// STATE
+// =============================================================================
 let scrollTimeout = null
 let lingerTimeout = null
 let lastScrollTime = Date.now()
 let capturedSections = new Set()
+let messageFailureCount = 0
+let isExtensionConnected = true
+
 let pageContent = {
   url: window.location.href,
   title: document.title,
@@ -147,6 +173,7 @@ function captureCurrentView() {
 
   // Avoid capturing the same section multiple times
   if (capturedSections.has(sectionKey)) {
+    log('Section already captured:', sectionKey)
     return
   }
 
@@ -161,7 +188,9 @@ function captureCurrentView() {
       text: visibleText,
     })
 
-    console.log(`📄 Captured ${visibleText.length} chars at scroll position ${scrollPosition}`)
+    log('Captured', visibleText.length, 'chars at scroll position', scrollPosition)
+  } else {
+    log('Skipped capture - text too short:', visibleText.length, 'chars')
   }
 }
 
@@ -185,15 +214,66 @@ function handleScroll() {
   }, LINGER_THRESHOLD_MS)
 }
 
+// =============================================================================
+// MESSAGE SENDING WITH RETRY
+// =============================================================================
+
+// Send message to background with retry logic
+async function sendMessageWithRetry(message, attempts = MESSAGE_RETRY_ATTEMPTS) {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const response = await chrome.runtime.sendMessage(message)
+
+      // Check for extension context invalidation
+      if (chrome.runtime.lastError) {
+        throw new Error(chrome.runtime.lastError.message)
+      }
+
+      // Success - reset failure count
+      messageFailureCount = 0
+      isExtensionConnected = true
+      return response
+    } catch (error) {
+      const errorMessage = error.message || 'Unknown error'
+
+      // Check for common disconnection errors
+      if (
+        errorMessage.includes('Extension context invalidated') ||
+        errorMessage.includes('Could not establish connection') ||
+        errorMessage.includes('Receiving end does not exist')
+      ) {
+        logError(`Message failed (attempt ${i + 1}/${attempts}):`, errorMessage)
+        messageFailureCount++
+        isExtensionConnected = false
+
+        if (i < attempts - 1) {
+          log(`Retrying in ${MESSAGE_RETRY_DELAY_MS}ms...`)
+          await new Promise(resolve => setTimeout(resolve, MESSAGE_RETRY_DELAY_MS))
+        }
+      } else {
+        // Other errors - don't retry
+        logError('Message failed with non-retryable error:', errorMessage)
+        throw error
+      }
+    }
+  }
+
+  logError(`Message failed after ${attempts} attempts - extension may need reload`)
+  return null
+}
+
 // Send captured content to background script
-function sendPageContent() {
-  if (pageContent.sections.length === 0) return
+async function sendPageContent() {
+  if (pageContent.sections.length === 0) {
+    log('No sections to send')
+    return
+  }
 
   // Also capture main content
   const mainContent = extractMainContent()
   const metadata = extractMetadata()
 
-  chrome.runtime.sendMessage({
+  const messageData = {
     type: 'PAGE_CONTENT',
     data: {
       url: pageContent.url,
@@ -205,19 +285,32 @@ function sendPageContent() {
       sectionCount: pageContent.sections.length,
       capturedAt: pageContent.capturedAt,
     },
-  })
+  }
 
-  console.log(`📤 Sent page content: ${mainContent.length} chars, ${pageContent.sections.length} sections`)
+  log('Sending page content:', mainContent.length, 'chars,', pageContent.sections.length, 'sections')
 
-  // Reset for next capture
-  pageContent.sections = []
-  capturedSections.clear()
+  const response = await sendMessageWithRetry(messageData)
+
+  if (response) {
+    log('Page content sent successfully:', response)
+    // Reset for next capture
+    pageContent.sections = []
+    capturedSections.clear()
+  } else {
+    logWarn('Failed to send page content - will retry on next capture')
+    // Don't clear sections - try to send them again next time
+  }
 }
 
-// Initialize
+// =============================================================================
+// INITIALIZATION
+// =============================================================================
 function init() {
+  log('Content script initializing for:', window.location.href.substring(0, 80))
+
   // Capture initial viewport
   setTimeout(() => {
+    log('Initial viewport capture')
     captureCurrentView()
   }, 2000) // Wait 2 seconds after page load
 
@@ -226,10 +319,36 @@ function init() {
 
   // Capture when user leaves the page
   window.addEventListener('beforeunload', () => {
+    log('Page unloading - sending remaining content')
     sendPageContent()
   })
 
-  console.log('📋 Teboraw content script loaded')
+  // Listen for visibility changes (tab switching)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      log('Tab hidden - sending content')
+      sendPageContent()
+    } else {
+      log('Tab visible again')
+    }
+  })
+
+  // Periodic connection check
+  setInterval(() => {
+    if (!isExtensionConnected && messageFailureCount > 0) {
+      log('Attempting to reconnect to extension...')
+      // Try a simple message to check connection
+      sendMessageWithRetry({ type: 'GET_STATUS' }).then(response => {
+        if (response) {
+          log('Reconnected to extension!')
+          isExtensionConnected = true
+          messageFailureCount = 0
+        }
+      })
+    }
+  }, 30000) // Check every 30 seconds
+
+  log('Content script initialized successfully')
 }
 
 // Start when DOM is ready
