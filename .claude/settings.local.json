@@ -64,7 +64,8 @@
       "Bash(pnpm rebuild:*)",
       "Bash(tccutil status:*)",
       "Bash(readlink:*)",
-      "Bash(pnpm run dev:*)"
+      "Bash(pnpm run dev:*)",
+      "Bash(python3:*)"
     ]
   }
 }

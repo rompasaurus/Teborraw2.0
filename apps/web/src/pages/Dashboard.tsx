@@ -17,7 +17,6 @@ import {
   Clock,
   FileText,
   Image as ImageIcon,
-  MousePointer,
   Keyboard,
 } from 'lucide-react'
 import { activitiesApi } from '@/services/api'

@@ -156,7 +156,7 @@ export function Thoughts() {
           </div>
         ) : (
           <div className="space-y-4">
-            {thoughts.map((thought) => (
+            {thoughts.map((thought: { id: string; content: string; tags: string[]; createdAt: string }) => (
               <div key={thought.id} className="card group">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">

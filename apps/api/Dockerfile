@@ -18,7 +18,7 @@ RUN dotnet restore
 COPY . .
 
 # Build and publish
-RUN dotnet publish Teboraw.Api/Teboraw.Api.csproj -c Release -o /app/publish --no-restore
+RUN dotnet publish Teboraw.Api/Teboraw.Api.csproj -c Release -o /app/publish
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
