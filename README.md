@@ -324,6 +324,158 @@ Teboraw 2.0/
 | `/api/activities/sync` | POST | Sync activities from clients |
 | `/api/thoughts` | GET/POST | Manage thoughts |
 
+## Docker Architecture
+
+Teboraw uses Docker Compose to orchestrate all backend services. The stack runs on a dedicated bridge network (`teboraw-network`) allowing containers to communicate using service names.
+
+### Container Overview
+
+| Container | Image | Port | Purpose |
+|-----------|-------|------|---------|
+| `teboraw-postgres` | postgres:16-alpine | 5432 | Primary database |
+| `teboraw-redis` | redis:7-alpine | 6379 | Caching layer |
+| `teboraw-api` | Custom (.NET 8) | 5000 | Backend API |
+| `teboraw-web` | Custom (nginx) | 5173 | Web dashboard |
+| `teboraw-pgadmin` | dpage/pgadmin4 | 5050 | Database admin UI |
+
+### Container Details
+
+#### PostgreSQL (`teboraw-postgres`)
+The primary data store for all application data.
+
+- **Image:** `postgres:16-alpine`
+- **Port:** `5432:5432`
+- **Volume:** `postgres_data:/var/lib/postgresql/data`
+- **Credentials:** `teboraw` / `teboraw_dev` (configurable via env vars)
+- **Health Check:** `pg_isready` command every 10s
+
+**Data Stored:**
+- User accounts and authentication
+- Activities (window focus, page visits, screenshots, etc.)
+- Thoughts and journal entries
+- Device registrations
+
+#### Redis (`teboraw-redis`)
+In-memory cache for performance optimization.
+
+- **Image:** `redis:7-alpine`
+- **Port:** `6379:6379`
+- **Volume:** `redis_data:/data`
+- **Health Check:** `redis-cli ping` every 10s
+
+**Intended Use:**
+- Activity summary caching
+- Rate limiting
+- Session storage
+- Real-time pub/sub (future)
+
+> **Note:** Redis is provisioned but not yet actively used in the codebase. The infrastructure is ready for future caching implementations.
+
+#### API (`teboraw-api`)
+The .NET 8 backend that handles all business logic.
+
+- **Build Context:** `./apps/api`
+- **Port:** `5000:5000`
+- **Health Check:** `curl http://localhost:5000/health` every 30s
+- **Depends On:** postgres (healthy), redis (healthy)
+
+**Responsibilities:**
+- REST API endpoints for all clients
+- JWT authentication and token refresh
+- Activity ingestion and storage
+- Database migrations (EF Core)
+- Swagger documentation at `/swagger`
+
+**Environment Variables:**
+- `ConnectionStrings__DefaultConnection` - PostgreSQL connection string
+- `Jwt__SecretKey` - JWT signing key
+- `Redis__Host` / `Redis__Port` - Redis connection
+
+#### Web Dashboard (`teboraw-web`)
+The React frontend served via nginx.
+
+- **Build Context:** `./apps/web`
+- **Port:** `5173:80` (nginx serves on port 80 internally)
+- **Health Check:** wget spider test every 30s
+- **Depends On:** api
+
+**Features:**
+- Activity timeline with filtering and search
+- Thoughts journal management
+- Statistics and visualizations
+- Dark theme UI
+
+**Build Args:**
+- `VITE_API_URL=/api` - API endpoint configuration
+
+#### pgAdmin (`teboraw-pgadmin`)
+Web-based database administration interface (optional, for development).
+
+- **Image:** `dpage/pgadmin4:latest`
+- **Port:** `5050:80`
+- **Volume:** `pgadmin_data:/var/lib/pgadmin`
+- **Credentials:** `admin@example.com` / `admin`
+- **Depends On:** postgres
+
+**Use Cases:**
+- View and edit database tables
+- Run SQL queries
+- Export/import data
+- Monitor database performance
+
+### Persistent Volumes
+
+| Volume | Purpose |
+|--------|---------|
+| `postgres_data` | PostgreSQL database files |
+| `redis_data` | Redis persistence (RDB/AOF) |
+| `pgadmin_data` | pgAdmin configuration and saved servers |
+
+### Network
+
+All containers run on `teboraw-network` (bridge driver). Containers communicate using service names:
+- API connects to `postgres:5432` and `redis:6379`
+- Web proxies API calls to `api:5000`
+
+### Common Commands
+
+```bash
+# Start all services
+docker compose up -d
+
+# Start with rebuild
+docker compose up -d --build
+
+# View logs
+docker compose logs -f              # All services
+docker compose logs -f api          # API only
+
+# Stop all services
+docker compose down
+
+# Stop and remove volumes (WARNING: deletes data)
+docker compose down -v
+
+# Restart a single service
+docker compose restart api
+
+# Check service health
+docker compose ps
+```
+
+### Environment Variables
+
+Create a `.env` file in the project root to customize:
+
+```env
+POSTGRES_USER=teboraw
+POSTGRES_PASSWORD=your_secure_password
+POSTGRES_DB=teboraw
+JWT_SECRET_KEY=your_32_char_minimum_secret_key
+```
+
+---
+
 ## Configuration
 
 ### API Configuration (appsettings.json)
