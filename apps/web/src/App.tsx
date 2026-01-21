@@ -3,6 +3,7 @@ import { useAuthStore } from '@/store/authStore'
 import { Login } from '@/pages/Login'
 import { Register } from '@/pages/Register'
 import { Dashboard } from '@/pages/Dashboard'
+import { Calendar } from '@/pages/Calendar'
 import { Thoughts } from '@/pages/Thoughts'
 import { Settings } from '@/pages/Settings'
 
@@ -68,7 +69,7 @@ function App() {
         path="/calendar"
         element={
           <ProtectedRoute>
-            <Dashboard />
+            <Calendar />
           </ProtectedRoute>
         }
       />
