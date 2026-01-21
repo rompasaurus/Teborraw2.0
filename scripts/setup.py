@@ -551,6 +551,98 @@ def apply_migrations(project_root: str) -> bool:
         return True  # Don't fail on migration errors
 
 
+def install_chrome_extension(project_root: str) -> bool:
+    """Open Chrome extensions page and guide user to install the extension"""
+    print_header("Chrome Extension Installation")
+
+    extension_path = os.path.join(project_root, 'apps', 'extension')
+
+    # Check if extension exists
+    if not os.path.exists(os.path.join(extension_path, 'manifest.json')):
+        print_warning("Chrome extension not found at apps/extension")
+        return False
+
+    print_step("Opening Chrome extensions page...")
+    print()
+    print(f"  {Colors.YELLOW}Please complete the following steps:{Colors.NC}")
+    print()
+    print(f"  1. Enable {Colors.YELLOW}Developer mode{Colors.NC} (toggle in top-right corner)")
+    print(f"  2. Click {Colors.GREEN}Load unpacked{Colors.NC}")
+    print(f"  3. Select the folder:")
+    print(f"     {Colors.BLUE}{extension_path}{Colors.NC}")
+    print()
+
+    # Open chrome://extensions in the default browser
+    chrome_extensions_url = "chrome://extensions"
+
+    try:
+        if platform.system() == 'Darwin':  # macOS
+            # Try to open Chrome specifically with the extensions page
+            chrome_paths = [
+                '/Applications/Google Chrome.app',
+                os.path.expanduser('~/Applications/Google Chrome.app')
+            ]
+            chrome_found = False
+            for chrome_path in chrome_paths:
+                if os.path.exists(chrome_path):
+                    subprocess.run([
+                        'open', '-a', chrome_path, chrome_extensions_url
+                    ], capture_output=True)
+                    chrome_found = True
+                    break
+
+            if not chrome_found:
+                print_warning("Google Chrome not found in standard locations")
+                print(f"  Please manually open Chrome and navigate to: {Colors.BLUE}chrome://extensions{Colors.NC}")
+                return True
+
+        elif platform.system() == 'Windows':
+            # Try common Chrome installation paths on Windows
+            chrome_paths = [
+                os.path.expandvars(r'%ProgramFiles%\Google\Chrome\Application\chrome.exe'),
+                os.path.expandvars(r'%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe'),
+                os.path.expandvars(r'%LocalAppData%\Google\Chrome\Application\chrome.exe'),
+            ]
+            chrome_found = False
+            for chrome_path in chrome_paths:
+                if os.path.exists(chrome_path):
+                    subprocess.run([chrome_path, chrome_extensions_url], capture_output=True)
+                    chrome_found = True
+                    break
+
+            if not chrome_found:
+                # Try using start command as fallback
+                subprocess.run(['start', chrome_extensions_url], shell=True, capture_output=True)
+
+        else:  # Linux
+            # Try to find Chrome or Chromium
+            chrome_cmds = ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser']
+            chrome_found = False
+            for chrome_cmd in chrome_cmds:
+                if shutil.which(chrome_cmd):
+                    subprocess.run([chrome_cmd, chrome_extensions_url], capture_output=True)
+                    chrome_found = True
+                    break
+
+            if not chrome_found:
+                # Try xdg-open as fallback
+                subprocess.run(['xdg-open', chrome_extensions_url], capture_output=True)
+
+        print_success("Chrome extensions page opened")
+        print()
+
+        # Wait for user to complete installation
+        input(f"  Press {Colors.GREEN}Enter{Colors.NC} after installing the extension to continue...")
+        print()
+        print_success("Chrome extension setup completed")
+        return True
+
+    except Exception as e:
+        print_warning(f"Could not automatically open Chrome: {e}")
+        print(f"  Please manually open Chrome and navigate to: {Colors.BLUE}chrome://extensions{Colors.NC}")
+        return True
+
+
 def print_docker_completion_message():
     """Print completion message for Docker deployment"""
     print_header("Setup Complete!")
@@ -631,6 +723,9 @@ def setup_docker(project_root: str):
     time.sleep(5)
     wait_for_api()
 
+    # Install Chrome extension
+    install_chrome_extension(project_root)
+
     # Print completion message
     print_docker_completion_message()
 
@@ -673,6 +768,9 @@ def setup_local(project_root: str):
 
     # Apply migrations
     apply_migrations(project_root)
+
+    # Install Chrome extension
+    install_chrome_extension(project_root)
 
     # Print completion message
     print_local_completion_message()

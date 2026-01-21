@@ -143,6 +143,16 @@ if [ "$DEPLOY_MODE" = "docker" ]; then
     echo -e "  ${GREEN}./scripts/run.sh logs${NC}    - View logs"
     echo -e "  ${GREEN}./scripts/run.sh rebuild${NC} - Rebuild and restart"
     echo -e ""
+    print_header "Chrome Extension Installation"
+    echo -e "To install the Chrome extension for browser activity tracking:"
+    echo -e ""
+    echo -e "  1. Open Chrome and navigate to ${BLUE}chrome://extensions${NC}"
+    echo -e "  2. Enable ${YELLOW}Developer mode${NC} (toggle in top-right corner)"
+    echo -e "  3. Click ${GREEN}Load unpacked${NC}"
+    echo -e "  4. Select the folder: ${BLUE}$PROJECT_ROOT/apps/extension${NC}"
+    echo -e ""
+    echo -e "The extension will sync browsing activity with the Teboraw API."
+    echo -e ""
 
 else
     # Local development mode
@@ -250,5 +260,15 @@ else
     echo -e "  ${BLUE}Swagger:${NC}    http://localhost:5000/swagger"
     echo -e "  ${BLUE}Dashboard:${NC}  http://localhost:5173"
     echo -e "  ${BLUE}pgAdmin:${NC}    http://localhost:5050 (admin@teboraw.local / admin)"
+    echo -e ""
+    print_header "Chrome Extension Installation"
+    echo -e "To install the Chrome extension for browser activity tracking:"
+    echo -e ""
+    echo -e "  1. Open Chrome and navigate to ${BLUE}chrome://extensions${NC}"
+    echo -e "  2. Enable ${YELLOW}Developer mode${NC} (toggle in top-right corner)"
+    echo -e "  3. Click ${GREEN}Load unpacked${NC}"
+    echo -e "  4. Select the folder: ${BLUE}$PROJECT_ROOT/apps/extension${NC}"
+    echo -e ""
+    echo -e "The extension will sync browsing activity with the Teboraw API."
     echo -e ""
 fi
