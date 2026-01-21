@@ -3,6 +3,11 @@
 Teboraw 2.0 - Cross-Platform Setup Script
 ==========================================
 Works on Windows, macOS, and Linux
+
+Usage:
+    python setup.py              # Docker deployment (default)
+    python setup.py --docker     # Docker deployment
+    python setup.py --local      # Local development setup
 """
 
 import os
@@ -11,6 +16,8 @@ import subprocess
 import shutil
 import time
 import platform
+import argparse
+import urllib.request
 
 # Colors for terminal output (cross-platform)
 class Colors:
@@ -269,8 +276,50 @@ def install_windows_build_tools() -> bool:
     return False
 
 
-def check_prerequisites() -> bool:
-    """Check all required tools are installed"""
+def check_docker_prerequisites() -> bool:
+    """Check Docker-related prerequisites only"""
+    print_step("Checking Docker prerequisites...")
+    all_ok = True
+
+    # Check Docker
+    if check_command_exists('docker'):
+        version_output = get_version(['docker', '--version'])
+        version = version_output.split()[2].rstrip(',') if version_output else "unknown"
+        print_success(f"Docker {version}")
+    else:
+        print_error("Docker is not installed. Please install Docker Desktop")
+        print_error("  Download from: https://www.docker.com/products/docker-desktop")
+        all_ok = False
+
+    # Check Docker Compose
+    result = run_command(['docker', 'compose', 'version'], capture=True)
+    if result and result.returncode == 0:
+        version = result.stdout.strip().split()[-1] if result.stdout else "unknown"
+        print_success(f"Docker Compose {version}")
+    else:
+        # Try docker-compose (old syntax)
+        result = run_command(['docker-compose', '--version'], capture=True)
+        if result and result.returncode == 0:
+            print_success(f"Docker Compose (legacy)")
+        else:
+            print_error("Docker Compose is not available")
+            print_error("  Please ensure Docker Desktop is properly installed")
+            all_ok = False
+
+    # Check if Docker daemon is running
+    result = run_command(['docker', 'info'], capture=True)
+    if result and result.returncode == 0:
+        print_success("Docker daemon is running")
+    else:
+        print_error("Docker daemon is not running")
+        print_error("  Please start Docker Desktop")
+        all_ok = False
+
+    return all_ok
+
+
+def check_local_prerequisites() -> bool:
+    """Check all required tools for local development"""
     print_step("Checking prerequisites...")
     all_ok = True
 
@@ -341,7 +390,7 @@ def check_prerequisites() -> bool:
         print_error("  Download from: https://dotnet.microsoft.com/download")
         all_ok = False
 
-    # Check Docker
+    # Check Docker (also needed for local mode for database)
     if check_command_exists('docker'):
         version_output = get_version(['docker', '--version'])
         # Extract just the version number
@@ -355,14 +404,39 @@ def check_prerequisites() -> bool:
     return all_ok
 
 
-def start_docker_services(project_root: str) -> bool:
-    """Start Docker services"""
-    print_step("Starting Docker services (PostgreSQL, Redis, pgAdmin)...")
+def docker_compose_cmd() -> list:
+    """Get the appropriate docker compose command"""
+    result = run_command(['docker', 'compose', 'version'], capture=True)
+    if result and result.returncode == 0:
+        return ['docker', 'compose']
+    return ['docker-compose']
 
-    result = run_command(['docker', 'compose', 'up', '-d'], cwd=project_root)
-    if result is None or result.returncode != 0:
-        # Try docker-compose (older syntax)
-        result = run_command(['docker-compose', 'up', '-d'], cwd=project_root)
+
+def build_docker_images(project_root: str) -> bool:
+    """Build Docker images for API and Web"""
+    print_step("Building Docker images...")
+
+    cmd = docker_compose_cmd() + ['build']
+    result = run_command(cmd, cwd=project_root)
+
+    if result and result.returncode == 0:
+        print_success("Docker images built successfully")
+        return True
+    else:
+        print_error("Failed to build Docker images")
+        return False
+
+
+def start_docker_services(project_root: str, services: list = None) -> bool:
+    """Start Docker services"""
+    if services:
+        print_step(f"Starting Docker services ({', '.join(services)})...")
+        cmd = docker_compose_cmd() + ['up', '-d'] + services
+    else:
+        print_step("Starting all Docker services...")
+        cmd = docker_compose_cmd() + ['up', '-d']
+
+    result = run_command(cmd, cwd=project_root)
 
     if result and result.returncode == 0:
         return True
@@ -391,6 +465,30 @@ def wait_for_postgres(project_root: str, max_wait: int = 60) -> bool:
 
     print()
     print_error("PostgreSQL did not become ready in time")
+    return False
+
+
+def wait_for_api(max_wait: int = 90) -> bool:
+    """Wait for API to be healthy"""
+    print_step("Waiting for API to be healthy...")
+
+    start_time = time.time()
+    while time.time() - start_time < max_wait:
+        try:
+            req = urllib.request.Request('http://localhost:5000/health')
+            with urllib.request.urlopen(req, timeout=5) as response:
+                if response.status == 200:
+                    print_success("API is healthy")
+                    return True
+        except:
+            pass
+
+        print(".", end="", flush=True)
+        time.sleep(2)
+
+    print()
+    print_warning("API health check timed out")
+    print_warning("Check logs with: docker compose logs api")
     return False
 
 
@@ -453,19 +551,39 @@ def apply_migrations(project_root: str) -> bool:
         return True  # Don't fail on migration errors
 
 
-def print_completion_message():
-    """Print setup completion message with next steps"""
+def print_docker_completion_message():
+    """Print completion message for Docker deployment"""
     print_header("Setup Complete!")
 
-    # Cross-platform script extension
-    script_ext = '.py'
+    python_cmd = 'python' if platform.system() == 'Windows' else 'python3'
+
+    print("All services are running in Docker containers.")
+    print()
+    print("Services:")
+    print(f"  {Colors.BLUE}API:{Colors.NC}        http://localhost:5000")
+    print(f"  {Colors.BLUE}Swagger:{Colors.NC}    http://localhost:5000/swagger")
+    print(f"  {Colors.BLUE}Dashboard:{Colors.NC}  http://localhost:5173")
+    print(f"  {Colors.BLUE}pgAdmin:{Colors.NC}    http://localhost:5050 (admin@teboraw.local / admin)")
+    print()
+    print("Commands:")
+    print(f"  {Colors.GREEN}{python_cmd} scripts/run.py{Colors.NC}           - Start all services")
+    print(f"  {Colors.GREEN}{python_cmd} scripts/run.py stop{Colors.NC}      - Stop all services")
+    print(f"  {Colors.GREEN}{python_cmd} scripts/run.py logs{Colors.NC}      - View logs")
+    print(f"  {Colors.GREEN}{python_cmd} scripts/run.py rebuild{Colors.NC}   - Rebuild and restart")
+    print()
+
+
+def print_local_completion_message():
+    """Print setup completion message with next steps for local development"""
+    print_header("Setup Complete!")
+
     python_cmd = 'python' if platform.system() == 'Windows' else 'python3'
 
     print("You can now run the project using:")
     print()
-    print(f"  {Colors.GREEN}{python_cmd} scripts/run.py{Colors.NC}        - Start all services")
-    print(f"  {Colors.GREEN}{python_cmd} scripts/run.py api{Colors.NC}    - Start only the API")
-    print(f"  {Colors.GREEN}{python_cmd} scripts/run.py web{Colors.NC}    - Start only the web dashboard")
+    print(f"  {Colors.GREEN}{python_cmd} scripts/run.py --local{Colors.NC}        - Start all services locally")
+    print(f"  {Colors.GREEN}{python_cmd} scripts/run.py --local api{Colors.NC}    - Start only the API")
+    print(f"  {Colors.GREEN}{python_cmd} scripts/run.py --local web{Colors.NC}    - Start only the web dashboard")
     print()
     print("Or manually:")
     print(f"  {Colors.YELLOW}API:{Colors.NC}       cd apps/api && dotnet run --project Teboraw.Api")
@@ -480,32 +598,61 @@ def print_completion_message():
     print()
 
 
-def main():
-    """Main setup function"""
-    Colors.init()
+def setup_docker(project_root: str):
+    """Docker deployment setup"""
+    print_header("Docker Deployment Setup")
 
-    project_root = get_project_root()
-    os.chdir(project_root)
+    # Check Docker prerequisites
+    if not check_docker_prerequisites():
+        print()
+        print_error("Docker prerequisites check failed.")
+        sys.exit(1)
 
-    print_header("Teboraw 2.0 - Setup Script")
-    print(f"Platform: {platform.system()} {platform.release()}")
-    print(f"Project root: {project_root}")
     print()
 
+    # Build Docker images
+    if not build_docker_images(project_root):
+        sys.exit(1)
+
+    # Start infrastructure services first
+    if not start_docker_services(project_root, ['postgres', 'redis']):
+        sys.exit(1)
+
+    # Wait for PostgreSQL
+    time.sleep(3)
+    if not wait_for_postgres(project_root):
+        print_warning("Continuing without confirming PostgreSQL readiness...")
+
+    # Start API and Web containers
+    if not start_docker_services(project_root, ['api', 'web', 'pgadmin']):
+        sys.exit(1)
+
+    # Wait for API to be healthy
+    time.sleep(5)
+    wait_for_api()
+
+    # Print completion message
+    print_docker_completion_message()
+
+
+def setup_local(project_root: str):
+    """Local development setup"""
+    print_header("Local Development Setup")
+
     # Check prerequisites
-    if not check_prerequisites():
+    if not check_local_prerequisites():
         print()
         print_error("Prerequisites check failed. Please install missing dependencies.")
         sys.exit(1)
 
     print()
 
-    # Start Docker services
-    if not start_docker_services(project_root):
+    # Start Docker services (PostgreSQL, Redis, pgAdmin only)
+    if not start_docker_services(project_root, ['postgres', 'redis', 'pgadmin']):
         sys.exit(1)
 
     # Wait for PostgreSQL
-    time.sleep(3)  # Initial wait
+    time.sleep(3)
     if not wait_for_postgres(project_root):
         print_warning("Continuing without confirming PostgreSQL readiness...")
 
@@ -528,7 +675,46 @@ def main():
     apply_migrations(project_root)
 
     # Print completion message
-    print_completion_message()
+    print_local_completion_message()
+
+
+def main():
+    """Main setup function"""
+    Colors.init()
+
+    # Parse arguments
+    parser = argparse.ArgumentParser(
+        description='Teboraw 2.0 Setup Script',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''
+Examples:
+  python setup.py              # Docker deployment (default)
+  python setup.py --docker     # Docker deployment
+  python setup.py --local      # Local development setup
+        '''
+    )
+    parser.add_argument('--docker', action='store_true', default=True,
+                        help='Setup for Docker deployment (default)')
+    parser.add_argument('--local', action='store_true',
+                        help='Setup for local development')
+    args = parser.parse_args()
+
+    # Determine mode (--local overrides default --docker)
+    deploy_mode = 'local' if args.local else 'docker'
+
+    project_root = get_project_root()
+    os.chdir(project_root)
+
+    print_header("Teboraw 2.0 - Setup Script")
+    print(f"Platform: {platform.system()} {platform.release()}")
+    print(f"Project root: {project_root}")
+    print(f"Deployment mode: {Colors.BLUE}{deploy_mode}{Colors.NC}")
+    print()
+
+    if deploy_mode == 'docker':
+        setup_docker(project_root)
+    else:
+        setup_local(project_root)
 
 
 if __name__ == '__main__':
