@@ -551,6 +551,83 @@ def apply_migrations(project_root: str) -> bool:
         return True  # Don't fail on migration errors
 
 
+def copy_to_clipboard(text: str) -> bool:
+    """Copy text to system clipboard"""
+    try:
+        if platform.system() == 'Darwin':  # macOS
+            subprocess.run(['pbcopy'], input=text.encode(), check=True)
+            return True
+        elif platform.system() == 'Windows':
+            subprocess.run(['clip'], input=text.encode(), check=True, shell=True)
+            return True
+        else:  # Linux
+            # Try xclip first, then xsel
+            if shutil.which('xclip'):
+                subprocess.run(['xclip', '-selection', 'clipboard'], input=text.encode(), check=True)
+                return True
+            elif shutil.which('xsel'):
+                subprocess.run(['xsel', '--clipboard', '--input'], input=text.encode(), check=True)
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def open_folder_in_finder(path: str) -> bool:
+    """Open folder in system file manager and select it"""
+    try:
+        if platform.system() == 'Darwin':  # macOS
+            # Reveal in Finder
+            subprocess.run(['open', '-R', path], check=True)
+            return True
+        elif platform.system() == 'Windows':
+            # Open Explorer and select the folder
+            subprocess.run(['explorer', '/select,', path], check=True)
+            return True
+        else:  # Linux
+            # Try various file managers
+            if shutil.which('nautilus'):
+                subprocess.run(['nautilus', '--select', path], check=True)
+                return True
+            elif shutil.which('dolphin'):
+                subprocess.run(['dolphin', '--select', path], check=True)
+                return True
+            elif shutil.which('xdg-open'):
+                subprocess.run(['xdg-open', os.path.dirname(path)], check=True)
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def find_chrome_executable() -> str:
+    """Find Chrome executable path"""
+    if platform.system() == 'Darwin':  # macOS
+        chrome_paths = [
+            '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+            os.path.expanduser('~/Applications/Google Chrome.app/Contents/MacOS/Google Chrome')
+        ]
+        for path in chrome_paths:
+            if os.path.exists(path):
+                return path
+    elif platform.system() == 'Windows':
+        chrome_paths = [
+            os.path.expandvars(r'%ProgramFiles%\Google\Chrome\Application\chrome.exe'),
+            os.path.expandvars(r'%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe'),
+            os.path.expandvars(r'%LocalAppData%\Google\Chrome\Application\chrome.exe'),
+        ]
+        for path in chrome_paths:
+            if os.path.exists(path):
+                return path
+    else:  # Linux
+        chrome_cmds = ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser']
+        for cmd in chrome_cmds:
+            path = shutil.which(cmd)
+            if path:
+                return path
+    return None
+
+
 def install_chrome_extension(project_root: str) -> bool:
     """Open Chrome extensions page and guide user to install the extension"""
     print_header("Chrome Extension Installation")
@@ -562,85 +639,58 @@ def install_chrome_extension(project_root: str) -> bool:
         print_warning("Chrome extension not found at apps/extension")
         return False
 
-    print_step("Opening Chrome extensions page...")
-    print()
-    print(f"  {Colors.YELLOW}Please complete the following steps:{Colors.NC}")
-    print()
-    print(f"  1. Enable {Colors.YELLOW}Developer mode{Colors.NC} (toggle in top-right corner)")
-    print(f"  2. Click {Colors.GREEN}Load unpacked{Colors.NC}")
-    print(f"  3. Select the folder:")
-    print(f"     {Colors.BLUE}{extension_path}{Colors.NC}")
-    print()
+    # Copy path to clipboard
+    clipboard_success = copy_to_clipboard(extension_path)
 
-    # Open chrome://extensions in the default browser
-    chrome_extensions_url = "chrome://extensions"
+    # Find Chrome
+    chrome_exe = find_chrome_executable()
 
-    try:
-        if platform.system() == 'Darwin':  # macOS
-            # Try to open Chrome specifically with the extensions page
-            chrome_paths = [
-                '/Applications/Google Chrome.app',
-                os.path.expanduser('~/Applications/Google Chrome.app')
-            ]
-            chrome_found = False
-            for chrome_path in chrome_paths:
-                if os.path.exists(chrome_path):
-                    subprocess.run([
-                        'open', '-a', chrome_path, chrome_extensions_url
-                    ], capture_output=True)
-                    chrome_found = True
-                    break
-
-            if not chrome_found:
-                print_warning("Google Chrome not found in standard locations")
-                print(f"  Please manually open Chrome and navigate to: {Colors.BLUE}chrome://extensions{Colors.NC}")
-                return True
-
-        elif platform.system() == 'Windows':
-            # Try common Chrome installation paths on Windows
-            chrome_paths = [
-                os.path.expandvars(r'%ProgramFiles%\Google\Chrome\Application\chrome.exe'),
-                os.path.expandvars(r'%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe'),
-                os.path.expandvars(r'%LocalAppData%\Google\Chrome\Application\chrome.exe'),
-            ]
-            chrome_found = False
-            for chrome_path in chrome_paths:
-                if os.path.exists(chrome_path):
-                    subprocess.run([chrome_path, chrome_extensions_url], capture_output=True)
-                    chrome_found = True
-                    break
-
-            if not chrome_found:
-                # Try using start command as fallback
-                subprocess.run(['start', chrome_extensions_url], shell=True, capture_output=True)
-
-        else:  # Linux
-            # Try to find Chrome or Chromium
-            chrome_cmds = ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser']
-            chrome_found = False
-            for chrome_cmd in chrome_cmds:
-                if shutil.which(chrome_cmd):
-                    subprocess.run([chrome_cmd, chrome_extensions_url], capture_output=True)
-                    chrome_found = True
-                    break
-
-            if not chrome_found:
-                # Try xdg-open as fallback
-                subprocess.run(['xdg-open', chrome_extensions_url], capture_output=True)
-
-        print_success("Chrome extensions page opened")
-        print()
-
-        # Wait for user to complete installation
-        input(f"  Press {Colors.GREEN}Enter{Colors.NC} after installing the extension to continue...")
-        print()
-        print_success("Chrome extension setup completed")
-        return True
-
-    except Exception as e:
-        print_warning(f"Could not automatically open Chrome: {e}")
+    if not chrome_exe:
+        print_warning("Google Chrome not found")
         print(f"  Please manually open Chrome and navigate to: {Colors.BLUE}chrome://extensions{Colors.NC}")
+        print(f"  Extension path: {Colors.BLUE}{extension_path}{Colors.NC}")
+        if clipboard_success:
+            print(f"  {Colors.GREEN}(Path copied to clipboard){Colors.NC}")
         return True
+
+    print_step("Opening Chrome extensions page...")
+
+    # Open chrome://extensions
+    try:
+        if platform.system() == 'Darwin':
+            subprocess.run(['open', '-a', 'Google Chrome', 'chrome://extensions'], capture_output=True)
+        else:
+            subprocess.run([chrome_exe, 'chrome://extensions'], capture_output=True)
+    except Exception as e:
+        print_warning(f"Could not open Chrome: {e}")
+
+    # Give Chrome time to open
+    time.sleep(2)
+
+    # Open file manager with extension folder selected
+    print_step("Opening extension folder in file manager...")
+    folder_opened = open_folder_in_finder(extension_path)
+
+    print()
+    print(f"  {Colors.GREEN}Extension path has been copied to your clipboard!{Colors.NC}" if clipboard_success else "")
+    print()
+    print(f"  {Colors.YELLOW}Complete the installation:{Colors.NC}")
+    print()
+    print(f"  1. In Chrome, enable {Colors.YELLOW}Developer mode{Colors.NC} (toggle in top-right)")
+    print(f"  2. Click {Colors.GREEN}Load unpacked{Colors.NC}")
+    if folder_opened:
+        print(f"  3. The extension folder is already open - just select it!")
+    elif clipboard_success:
+        print(f"  3. Paste the path from your clipboard (Cmd+V / Ctrl+V)")
+    else:
+        print(f"  3. Navigate to: {Colors.BLUE}{extension_path}{Colors.NC}")
+    print()
+
+    # Wait for user to complete installation
+    input(f"  Press {Colors.GREEN}Enter{Colors.NC} after installing the extension...")
+    print()
+    print_success("Chrome extension setup completed")
+    return True
 
 
 def print_docker_completion_message():
