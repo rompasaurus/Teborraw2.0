@@ -1,196 +1,193 @@
-import { useState } from 'react'
+import { useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { format } from 'date-fns'
-import { Lightbulb, Plus, Tag, Trash2, X } from 'lucide-react'
-import { thoughtsApi } from '@/services/api'
+import { Allotment } from 'allotment'
+import 'allotment/dist/style.css'
+
 import { Layout } from '@/components/Layout'
+import {
+  ThoughtsEditor,
+  TopicTree,
+  ThoughtsToolbar,
+  ThoughtsList,
+  TopicDetails,
+} from '@/components/thoughts'
+import { thoughtsApi } from '@/services/api'
+import { useThoughtsEditorStore } from '@/store/thoughtsEditorStore'
+import { useTopicParser } from '@/hooks/useTopicParser'
+import type { Thought } from '@/types/journal'
 
 export function Thoughts() {
   const queryClient = useQueryClient()
-  const [showNewThought, setShowNewThought] = useState(false)
-  const [newContent, setNewContent] = useState('')
-  const [newTags, setNewTags] = useState<string[]>([])
-  const [tagInput, setTagInput] = useState('')
+  const {
+    currentThoughtId,
+    draftContent,
+    currentTopic,
+    setCurrentThought,
+    setDraftContent,
+    setTopicTree,
+    createNewThought,
+    markSaved,
+  } = useThoughtsEditorStore()
 
-  const { data, isLoading } = useQuery({
+  // Parse topics from content
+  const { tree, getTitle } = useTopicParser(
+    draftContent,
+    currentThoughtId ?? undefined
+  )
+
+  // Update topic tree when content changes
+  useEffect(() => {
+    setTopicTree(tree)
+  }, [tree, setTopicTree])
+
+  // Fetch thoughts list
+  const { data: thoughtsData, isLoading: isLoadingList } = useQuery({
     queryKey: ['thoughts'],
     queryFn: () => thoughtsApi.list({ pageSize: 50 }),
   })
 
-  const createMutation = useMutation({
-    mutationFn: () =>
-      thoughtsApi.create({ content: newContent, tags: newTags }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['thoughts'] })
-      setShowNewThought(false)
-      setNewContent('')
-      setNewTags([])
-    },
+  // Fetch latest thought on mount if no current thought
+  const { data: latestData } = useQuery({
+    queryKey: ['thoughts', 'latest'],
+    queryFn: () => thoughtsApi.getLatest(),
+    enabled: !currentThoughtId && !draftContent,
   })
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => thoughtsApi.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['thoughts'] })
-    },
-  })
-
-  const thoughts = data?.data?.items ?? []
-
-  const handleAddTag = () => {
-    if (tagInput.trim() && !newTags.includes(tagInput.trim())) {
-      setNewTags([...newTags, tagInput.trim()])
-      setTagInput('')
+  // Load latest thought on initial mount
+  useEffect(() => {
+    if (latestData?.data && !currentThoughtId && !draftContent) {
+      setCurrentThought(latestData.data)
     }
-  }
+  }, [latestData, currentThoughtId, draftContent, setCurrentThought])
 
-  const handleRemoveTag = (tag: string) => {
-    setNewTags(newTags.filter((t) => t !== tag))
-  }
+  // Create mutation
+  const createMutation = useMutation({
+    mutationFn: (content: string) =>
+      thoughtsApi.create({
+        content,
+        title: getTitle(),
+        topicTree: JSON.stringify(tree),
+      }),
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: ['thoughts'] })
+      setCurrentThought(response.data)
+      markSaved()
+    },
+  })
+
+  // Update mutation
+  const updateMutation = useMutation({
+    mutationFn: ({ id, content }: { id: string; content: string }) =>
+      thoughtsApi.update(id, {
+        content,
+        title: getTitle(),
+        topicTree: JSON.stringify(tree),
+      }),
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: ['thoughts'] })
+      setCurrentThought(response.data)
+      markSaved()
+    },
+  })
+
+  const thoughts = thoughtsData?.data?.items ?? []
+  const isSaving = createMutation.isPending || updateMutation.isPending
+
+  const handleSave = useCallback(() => {
+    if (currentThoughtId) {
+      updateMutation.mutate({ id: currentThoughtId, content: draftContent })
+    } else {
+      createMutation.mutate(draftContent)
+    }
+  }, [currentThoughtId, draftContent, createMutation, updateMutation])
+
+  const handleNew = useCallback(() => {
+    createNewThought()
+  }, [createNewThought])
+
+  const handleSelectThought = useCallback(
+    (thought: Thought) => {
+      setCurrentThought(thought)
+    },
+    [setCurrentThought]
+  )
+
+  const handleContentChange = useCallback(
+    (content: string) => {
+      setDraftContent(content)
+    },
+    [setDraftContent]
+  )
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault()
+        handleSave()
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+        e.preventDefault()
+        handleNew()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleSave, handleNew])
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-white">Thoughts</h1>
-            <p className="text-slate-400 mt-1">
-              Capture and organize your ideas
-            </p>
-          </div>
-          <button
-            onClick={() => setShowNewThought(true)}
-            className="btn-primary flex items-center gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            New Thought
-          </button>
-        </div>
-
-        {/* New Thought Modal */}
-        {showNewThought && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="card w-full max-w-lg">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-white">
-                  New Thought
-                </h2>
-                <button
-                  onClick={() => setShowNewThought(false)}
-                  className="text-slate-400 hover:text-white"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <textarea
-                value={newContent}
-                onChange={(e) => setNewContent(e.target.value)}
-                placeholder="What's on your mind?"
-                className="input w-full h-32 resize-none mb-4"
-              />
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Tags
-                </label>
-                <div className="flex gap-2 flex-wrap mb-2">
-                  {newTags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="inline-flex items-center gap-1 px-2 py-1 bg-primary-500/20 text-primary-400 rounded text-sm"
-                    >
-                      {tag}
-                      <button onClick={() => handleRemoveTag(tag)}>
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
-                    placeholder="Add a tag"
-                    className="input flex-1"
-                  />
-                  <button onClick={handleAddTag} className="btn-secondary">
-                    Add
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => setShowNewThought(false)}
-                  className="btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => createMutation.mutate()}
-                  disabled={!newContent.trim() || createMutation.isPending}
-                  className="btn-primary disabled:opacity-50"
-                >
-                  {createMutation.isPending ? 'Saving...' : 'Save'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Thoughts List */}
-        {isLoading ? (
-          <div className="text-center py-12 text-slate-400">
-            Loading thoughts...
-          </div>
-        ) : thoughts.length === 0 ? (
-          <div className="card text-center py-12">
-            <Lightbulb className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-            <p className="text-slate-400">No thoughts yet</p>
-            <p className="text-sm text-slate-500 mt-1">
-              Click "New Thought" to capture your first idea
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {thoughts.map((thought: { id: string; content: string; tags: string[]; createdAt: string }) => (
-              <div key={thought.id} className="card group">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <p className="text-white whitespace-pre-wrap">
-                      {thought.content}
-                    </p>
-                    {thought.tags.length > 0 && (
-                      <div className="flex gap-2 mt-3 flex-wrap">
-                        {thought.tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-700 text-slate-300 rounded text-xs"
-                          >
-                            <Tag className="w-3 h-3" />
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    <p className="text-xs text-slate-500 mt-3">
-                      {format(new Date(thought.createdAt), 'MMM d, yyyy HH:mm')}
-                    </p>
+      <div className="h-[calc(100vh-2rem)] -m-6">
+        <Allotment>
+          {/* Left Panel: Topic Tree + Thoughts List (20%) */}
+          <Allotment.Pane preferredSize="20%" minSize={150} maxSize={400}>
+            <div className="h-full bg-slate-800 border-r border-slate-700">
+              <Allotment vertical>
+                {/* Topic Tree */}
+                <Allotment.Pane preferredSize="60%">
+                  <TopicTree tree={tree} />
+                </Allotment.Pane>
+                {/* Thoughts List */}
+                <Allotment.Pane>
+                  <div className="h-full border-t border-slate-700">
+                    <ThoughtsList
+                      thoughts={thoughts}
+                      isLoading={isLoadingList}
+                      onSelect={handleSelectThought}
+                    />
                   </div>
-                  <button
-                    onClick={() => deleteMutation.mutate(thought.id)}
-                    className="text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                </Allotment.Pane>
+              </Allotment>
+            </div>
+          </Allotment.Pane>
+
+          {/* Right Panel: Editor + Details (80%) */}
+          <Allotment.Pane>
+            <Allotment vertical>
+              {/* Editor (75%) */}
+              <Allotment.Pane preferredSize="75%">
+                <div className="h-full flex flex-col">
+                  <ThoughtsToolbar
+                    onSave={handleSave}
+                    onNew={handleNew}
+                    isSaving={isSaving}
+                    title={getTitle()}
+                  />
+                  <div className="flex-1 overflow-hidden">
+                    <ThoughtsEditor onContentChange={handleContentChange} />
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              </Allotment.Pane>
+              {/* Topic Details (25%) */}
+              <Allotment.Pane preferredSize="25%" minSize={100}>
+                <div className="h-full bg-slate-800 border-t border-slate-700">
+                  <TopicDetails topic={currentTopic} />
+                </div>
+              </Allotment.Pane>
+            </Allotment>
+          </Allotment.Pane>
+        </Allotment>
       </div>
     </Layout>
   )

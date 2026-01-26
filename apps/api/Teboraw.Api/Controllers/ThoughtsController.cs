@@ -56,7 +56,9 @@ public class ThoughtsController : ControllerBase
             .Take(pageSize)
             .Select(t => new ThoughtDto(
                 t.Id,
+                t.Title,
                 t.Content,
+                t.TopicTree,
                 t.Tags,
                 t.LinkedActivityIds,
                 t.CreatedAt,
@@ -70,6 +72,32 @@ public class ThoughtsController : ControllerBase
             page,
             pageSize,
             totalPages
+        ));
+    }
+
+    [HttpGet("latest")]
+    public async Task<ActionResult<ThoughtDto>> GetLatestThought()
+    {
+        var userId = GetUserId();
+        var thought = await _unitOfWork.Thoughts.Query()
+            .Where(t => t.UserId == userId)
+            .OrderByDescending(t => t.UpdatedAt)
+            .FirstOrDefaultAsync();
+
+        if (thought == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(new ThoughtDto(
+            thought.Id,
+            thought.Title,
+            thought.Content,
+            thought.TopicTree,
+            thought.Tags,
+            thought.LinkedActivityIds,
+            thought.CreatedAt,
+            thought.UpdatedAt
         ));
     }
 
@@ -87,7 +115,9 @@ public class ThoughtsController : ControllerBase
 
         return Ok(new ThoughtDto(
             thought.Id,
+            thought.Title,
             thought.Content,
+            thought.TopicTree,
             thought.Tags,
             thought.LinkedActivityIds,
             thought.CreatedAt,
@@ -103,7 +133,9 @@ public class ThoughtsController : ControllerBase
         var thought = new Thought
         {
             UserId = userId,
+            Title = request.Title,
             Content = request.Content,
+            TopicTree = request.TopicTree,
             Tags = request.Tags ?? new List<string>(),
             LinkedActivityIds = request.LinkedActivityIds ?? new List<Guid>()
         };
@@ -113,7 +145,9 @@ public class ThoughtsController : ControllerBase
 
         return CreatedAtAction(nameof(GetThought), new { id = thought.Id }, new ThoughtDto(
             thought.Id,
+            thought.Title,
             thought.Content,
+            thought.TopicTree,
             thought.Tags,
             thought.LinkedActivityIds,
             thought.CreatedAt,
@@ -133,9 +167,19 @@ public class ThoughtsController : ControllerBase
             return NotFound();
         }
 
+        if (request.Title != null)
+        {
+            thought.Title = request.Title;
+        }
+
         if (request.Content != null)
         {
             thought.Content = request.Content;
+        }
+
+        if (request.TopicTree != null)
+        {
+            thought.TopicTree = request.TopicTree;
         }
 
         if (request.Tags != null)
@@ -153,7 +197,9 @@ public class ThoughtsController : ControllerBase
 
         return Ok(new ThoughtDto(
             thought.Id,
+            thought.Title,
             thought.Content,
+            thought.TopicTree,
             thought.Tags,
             thought.LinkedActivityIds,
             thought.CreatedAt,

@@ -117,8 +117,12 @@ export const thoughtsApi = {
 
   get: (id: string) => api.get(`/thoughts/${id}`),
 
+  getLatest: () => api.get('/thoughts/latest'),
+
   create: (data: {
     content: string
+    title?: string
+    topicTree?: string
     tags?: string[]
     linkedActivityIds?: string[]
   }) => api.post('/thoughts', data),
@@ -127,6 +131,8 @@ export const thoughtsApi = {
     id: string,
     data: {
       content?: string
+      title?: string
+      topicTree?: string
       tags?: string[]
       linkedActivityIds?: string[]
     }
