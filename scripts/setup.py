@@ -5,8 +5,8 @@ Teboraw 2.0 - Cross-Platform Setup Script
 Works on Windows, macOS, and Linux
 
 Usage:
-    python setup.py              # Docker deployment (default)
-    python setup.py --docker     # Docker deployment
+    python setup.py              # Monitor and manage services (default)
+    python setup.py --docker     # Docker deployment setup
     python setup.py --local      # Local development setup
 """
 
@@ -780,6 +780,328 @@ def setup_docker(project_root: str):
     print_docker_completion_message()
 
 
+def get_container_stats(project_root: str) -> list:
+    """Get stats for all Teboraw containers"""
+    result = run_command(
+        ['docker', 'compose', 'ps', '--format', 'json'],
+        cwd=project_root,
+        capture=True
+    )
+
+    if not result or result.returncode != 0:
+        return []
+
+    import json
+    containers = []
+    # Docker compose ps --format json outputs one JSON object per line
+    for line in result.stdout.strip().split('\n'):
+        if line:
+            try:
+                containers.append(json.loads(line))
+            except json.JSONDecodeError:
+                pass
+
+    return containers
+
+
+def get_container_health(container_name: str) -> dict:
+    """Get detailed health info for a container"""
+    result = run_command(
+        ['docker', 'inspect', '--format',
+         '{{.State.Status}}|{{.State.Health.Status}}|{{.State.StartedAt}}',
+         container_name],
+        capture=True
+    )
+
+    if not result or result.returncode != 0:
+        return {'status': 'unknown', 'health': 'unknown', 'started': 'unknown'}
+
+    parts = result.stdout.strip().split('|')
+    return {
+        'status': parts[0] if len(parts) > 0 else 'unknown',
+        'health': parts[1] if len(parts) > 1 and parts[1] else 'N/A',
+        'started': parts[2][:19] if len(parts) > 2 else 'unknown'
+    }
+
+
+def check_service_uptime(service_url: str, timeout: int = 3) -> tuple:
+    """Check if a service is responding and measure response time"""
+    try:
+        start = time.time()
+        req = urllib.request.Request(service_url)
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            elapsed = (time.time() - start) * 1000
+            return (True, response.status, f"{elapsed:.0f}ms")
+    except Exception as e:
+        return (False, 0, str(e)[:30])
+
+
+def clear_screen():
+    """Clear terminal screen"""
+    os.system('cls' if platform.system() == 'Windows' else 'clear')
+
+
+def print_monitor_header():
+    """Print the monitor header"""
+    print(f"{Colors.BLUE}{'=' * 70}{Colors.NC}")
+    print(f"{Colors.BLUE}  Teboraw Service Monitor{Colors.NC}")
+    print(f"{Colors.BLUE}{'=' * 70}{Colors.NC}")
+    print()
+
+
+def print_service_status(containers: list, project_root: str):
+    """Print status table for all services"""
+    # Service endpoints for health checking
+    endpoints = {
+        'api': 'http://localhost:5000/health',
+        'web': 'http://localhost:5173',
+        'pgadmin': 'http://localhost:5050',
+    }
+
+    print(f"  {'Service':<12} {'Status':<12} {'Health':<12} {'Response':<12} {'Container':<20}")
+    print(f"  {'-' * 12} {'-' * 12} {'-' * 12} {'-' * 12} {'-' * 20}")
+
+    for container in containers:
+        name = container.get('Service', container.get('Name', 'unknown'))
+        state = container.get('State', 'unknown')
+        container_name = container.get('Name', '')
+
+        # Get detailed health
+        health_info = get_container_health(container_name)
+        health = health_info.get('health', 'N/A')
+
+        # Check endpoint if available
+        response = '-'
+        if name in endpoints and state == 'running':
+            ok, status, resp_time = check_service_uptime(endpoints[name])
+            response = f"{Colors.GREEN}{resp_time}{Colors.NC}" if ok else f"{Colors.RED}down{Colors.NC}"
+
+        # Color code status
+        if state == 'running':
+            status_str = f"{Colors.GREEN}{state:<12}{Colors.NC}"
+        elif state == 'exited':
+            status_str = f"{Colors.RED}{state:<12}{Colors.NC}"
+        else:
+            status_str = f"{Colors.YELLOW}{state:<12}{Colors.NC}"
+
+        # Color code health
+        if health == 'healthy':
+            health_str = f"{Colors.GREEN}{health:<12}{Colors.NC}"
+        elif health == 'unhealthy':
+            health_str = f"{Colors.RED}{health:<12}{Colors.NC}"
+        else:
+            health_str = f"{Colors.YELLOW}{health:<12}{Colors.NC}"
+
+        print(f"  {name:<12} {status_str} {health_str} {response:<12} {container_name:<20}")
+
+    print()
+
+
+def print_monitor_menu():
+    """Print the monitor menu options"""
+    print(f"  {Colors.CYAN}Actions:{Colors.NC}")
+    print(f"    {Colors.GREEN}[1]{Colors.NC} Reload service (rebuild without cache)")
+    print(f"    {Colors.GREEN}[2]{Colors.NC} Restart service")
+    print(f"    {Colors.GREEN}[3]{Colors.NC} Rebuild all services")
+    print(f"    {Colors.GREEN}[4]{Colors.NC} View logs")
+    print(f"    {Colors.GREEN}[5]{Colors.NC} Stop all services")
+    print(f"    {Colors.GREEN}[6]{Colors.NC} Start all services")
+    print(f"    {Colors.GREEN}[r]{Colors.NC} Refresh status")
+    print(f"    {Colors.GREEN}[q]{Colors.NC} Quit monitor")
+    print()
+
+
+def select_service(containers: list) -> str:
+    """Prompt user to select a service"""
+    services = [c.get('Service', c.get('Name', '')) for c in containers]
+
+    print(f"\n  {Colors.CYAN}Select service:{Colors.NC}")
+    for i, svc in enumerate(services, 1):
+        print(f"    {Colors.GREEN}[{i}]{Colors.NC} {svc}")
+    print(f"    {Colors.GREEN}[a]{Colors.NC} All services")
+    print(f"    {Colors.GREEN}[c]{Colors.NC} Cancel")
+
+    choice = input(f"\n  {Colors.YELLOW}>{Colors.NC} ").strip().lower()
+
+    if choice == 'c':
+        return None
+    if choice == 'a':
+        return 'all'
+    try:
+        idx = int(choice) - 1
+        if 0 <= idx < len(services):
+            return services[idx]
+    except ValueError:
+        pass
+
+    print_error("Invalid selection")
+    return None
+
+
+def reload_service(project_root: str, service: str):
+    """Rebuild and restart a service"""
+    if service == 'all':
+        print_step("Rebuilding all services...")
+        cmd = docker_compose_cmd() + ['up', '-d', '--build']
+    else:
+        print_step(f"Rebuilding {service}...")
+        cmd = docker_compose_cmd() + ['up', '-d', '--build', '--no-deps', service]
+
+    result = run_command(cmd, cwd=project_root)
+    if result and result.returncode == 0:
+        print_success(f"Service {'all' if service == 'all' else service} reloaded successfully")
+    else:
+        print_error("Failed to reload service")
+
+    time.sleep(2)
+
+
+def restart_service(project_root: str, service: str):
+    """Restart a service without rebuilding"""
+    if service == 'all':
+        print_step("Restarting all services...")
+        cmd = docker_compose_cmd() + ['restart']
+    else:
+        print_step(f"Restarting {service}...")
+        cmd = docker_compose_cmd() + ['restart', service]
+
+    result = run_command(cmd, cwd=project_root)
+    if result and result.returncode == 0:
+        print_success(f"Service {'all' if service == 'all' else service} restarted successfully")
+    else:
+        print_error("Failed to restart service")
+
+    time.sleep(2)
+
+
+def rebuild_all_services(project_root: str):
+    """Rebuild all services from scratch"""
+    print_step("Rebuilding all services (no cache)...")
+    cmd = docker_compose_cmd() + ['build', '--no-cache']
+    result = run_command(cmd, cwd=project_root)
+
+    if result and result.returncode == 0:
+        print_step("Starting services...")
+        cmd = docker_compose_cmd() + ['up', '-d']
+        result = run_command(cmd, cwd=project_root)
+        if result and result.returncode == 0:
+            print_success("All services rebuilt and started")
+        else:
+            print_error("Failed to start services")
+    else:
+        print_error("Failed to rebuild services")
+
+    time.sleep(2)
+
+
+def view_logs(project_root: str, service: str):
+    """View logs for a service"""
+    if service == 'all':
+        print_step("Viewing logs for all services (Ctrl+C to exit)...")
+        cmd = docker_compose_cmd() + ['logs', '-f', '--tail=50']
+    else:
+        print_step(f"Viewing logs for {service} (Ctrl+C to exit)...")
+        cmd = docker_compose_cmd() + ['logs', '-f', '--tail=50', service]
+
+    try:
+        subprocess.run(' '.join(cmd), cwd=project_root, shell=True)
+    except KeyboardInterrupt:
+        print()
+
+
+def stop_all_services(project_root: str):
+    """Stop all services"""
+    print_step("Stopping all services...")
+    cmd = docker_compose_cmd() + ['stop']
+    result = run_command(cmd, cwd=project_root)
+
+    if result and result.returncode == 0:
+        print_success("All services stopped")
+    else:
+        print_error("Failed to stop services")
+
+    time.sleep(1)
+
+
+def start_all_services(project_root: str):
+    """Start all services"""
+    print_step("Starting all services...")
+    cmd = docker_compose_cmd() + ['up', '-d']
+    result = run_command(cmd, cwd=project_root)
+
+    if result and result.returncode == 0:
+        print_success("All services started")
+    else:
+        print_error("Failed to start services")
+
+    time.sleep(2)
+
+
+def monitor_services(project_root: str):
+    """Interactive service monitor"""
+    print_header("Teboraw Service Monitor")
+
+    while True:
+        clear_screen()
+        print_monitor_header()
+
+        # Get container status
+        containers = get_container_stats(project_root)
+
+        if not containers:
+            print(f"  {Colors.YELLOW}No containers found. Services may not be running.{Colors.NC}")
+            print()
+            print(f"  {Colors.CYAN}Options:{Colors.NC}")
+            print(f"    {Colors.GREEN}[6]{Colors.NC} Start all services")
+            print(f"    {Colors.GREEN}[q]{Colors.NC} Quit")
+            print()
+            choice = input(f"  {Colors.YELLOW}>{Colors.NC} ").strip().lower()
+
+            if choice == '6':
+                start_all_services(project_root)
+                continue
+            elif choice == 'q':
+                break
+            continue
+
+        # Print status table
+        print_service_status(containers, project_root)
+
+        # Print menu
+        print_monitor_menu()
+
+        # Get user input
+        choice = input(f"  {Colors.YELLOW}>{Colors.NC} ").strip().lower()
+
+        if choice == 'q':
+            break
+        elif choice == 'r':
+            continue
+        elif choice == '1':
+            service = select_service(containers)
+            if service:
+                reload_service(project_root, service)
+        elif choice == '2':
+            service = select_service(containers)
+            if service:
+                restart_service(project_root, service)
+        elif choice == '3':
+            confirm = input(f"  {Colors.YELLOW}Rebuild all services without cache? [y/N]:{Colors.NC} ").strip().lower()
+            if confirm == 'y':
+                rebuild_all_services(project_root)
+        elif choice == '4':
+            service = select_service(containers)
+            if service:
+                view_logs(project_root, service)
+        elif choice == '5':
+            stop_all_services(project_root)
+        elif choice == '6':
+            start_all_services(project_root)
+
+    print()
+    print_success("Monitor closed")
+
+
 def setup_local(project_root: str):
     """Local development setup"""
     print_header("Local Development Setup")
@@ -836,19 +1158,24 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''
 Examples:
-  python setup.py              # Docker deployment (default)
-  python setup.py --docker     # Docker deployment
+  python setup.py              # Monitor and manage services (default)
+  python setup.py --docker     # Docker deployment setup
   python setup.py --local      # Local development setup
         '''
     )
-    parser.add_argument('--docker', action='store_true', default=True,
-                        help='Setup for Docker deployment (default)')
+    parser.add_argument('--docker', action='store_true',
+                        help='Setup for Docker deployment')
     parser.add_argument('--local', action='store_true',
                         help='Setup for local development')
     args = parser.parse_args()
 
-    # Determine mode (--local overrides default --docker)
-    deploy_mode = 'local' if args.local else 'docker'
+    # Determine mode (monitor is default)
+    if args.docker:
+        deploy_mode = 'docker'
+    elif args.local:
+        deploy_mode = 'local'
+    else:
+        deploy_mode = 'monitor'
 
     project_root = get_project_root()
     os.chdir(project_root)
@@ -859,7 +1186,9 @@ Examples:
     print(f"Deployment mode: {Colors.BLUE}{deploy_mode}{Colors.NC}")
     print()
 
-    if deploy_mode == 'docker':
+    if deploy_mode == 'monitor':
+        monitor_services(project_root)
+    elif deploy_mode == 'docker':
         setup_docker(project_root)
     else:
         setup_local(project_root)
