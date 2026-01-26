@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<application>
+  <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
+    <data-source source="LOCAL" name="Teboraw PostgreSQL" uuid="a1b2c3d4-e5f6-7890-abcd-ef1234567890">
+      <driver-ref>postgresql</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>org.postgresql.Driver</jdbc-driver>
+      <jdbc-url>jdbc:postgresql://localhost:5432/teboraw</jdbc-url>
+      <driver-properties>
+        <property name="user" value="teboraw"/>
+        <property name="password" value="teboraw_dev"/>
+      </driver-properties>
+    </data-source>
+  </component>
+</application>
