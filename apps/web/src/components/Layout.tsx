@@ -69,7 +69,6 @@ const navItems = [
   { path: '/dashboard', label: 'Timeline', icon: Activity },
   { path: '/calendar', label: 'Calendar', icon: Calendar },
   { path: '/locations', label: 'Locations', icon: Map },
-  { path: '/settings', label: 'Settings', icon: Settings },
 ]
 
 // Load saved width from localStorage
@@ -233,6 +232,19 @@ export function Layout({ children }: LayoutProps) {
               </div>
             )}
           </div>
+          <Link
+            id="layout-settings-btn"
+            to="/settings"
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors mt-1 ${
+              location.pathname === '/settings'
+                ? 'bg-primary-600 text-white'
+                : 'text-slate-300 hover:bg-slate-700'
+            } ${!showText ? 'justify-center' : ''}`}
+            title={!showText ? 'Settings' : undefined}
+          >
+            <Settings className="w-5 h-5 flex-shrink-0" />
+            {showText && <span className="whitespace-nowrap">Settings</span>}
+          </Link>
           <button
             id="layout-logout-btn"
             onClick={handleLogout}

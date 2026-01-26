@@ -94,8 +94,18 @@ export function Thoughts() {
     },
   })
 
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => thoughtsApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['thoughts'] })
+      createNewThought()
+    },
+  })
+
   const thoughts = thoughtsData?.data?.items ?? []
   const isSaving = createMutation.isPending || updateMutation.isPending
+  const isDeleting = deleteMutation.isPending
 
   const handleSave = useCallback(() => {
     if (currentThoughtId) {
@@ -112,6 +122,12 @@ export function Thoughts() {
       setShowTutorial(true)
     }
   }, [createNewThought, shouldShowTutorial])
+
+  const handleDelete = useCallback(() => {
+    if (currentThoughtId) {
+      deleteMutation.mutate(currentThoughtId)
+    }
+  }, [currentThoughtId, deleteMutation])
 
   const handleSelectThought = useCallback(
     (thought: Thought) => {
@@ -190,8 +206,10 @@ export function Thoughts() {
                   <ThoughtsToolbar
                     onSave={handleSave}
                     onNew={handleNew}
+                    onDelete={handleDelete}
                     onShowTutorial={handleShowTutorial}
                     isSaving={isSaving}
+                    isDeleting={isDeleting}
                     title={getTitle()}
                   />
                   <div id="thoughts-editor-container" className="flex-1 overflow-hidden">
