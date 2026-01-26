@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Allotment } from 'allotment'
 import 'allotment/dist/style.css'
@@ -10,6 +10,8 @@ import {
   ThoughtsToolbar,
   ThoughtsList,
   TopicDetails,
+  ThoughtsTutorial,
+  useShouldShowTutorial,
 } from '@/components/thoughts'
 import { thoughtsApi } from '@/services/api'
 import { useThoughtsEditorStore } from '@/store/thoughtsEditorStore'
@@ -18,6 +20,8 @@ import type { Thought } from '@/types/journal'
 
 export function Thoughts() {
   const queryClient = useQueryClient()
+  const shouldShowTutorial = useShouldShowTutorial()
+  const [showTutorial, setShowTutorial] = useState(false)
   const {
     currentThoughtId,
     draftContent,
@@ -103,7 +107,11 @@ export function Thoughts() {
 
   const handleNew = useCallback(() => {
     createNewThought()
-  }, [createNewThought])
+    // Show tutorial for first-time users when creating a new thought
+    if (shouldShowTutorial) {
+      setShowTutorial(true)
+    }
+  }, [createNewThought, shouldShowTutorial])
 
   const handleSelectThought = useCallback(
     (thought: Thought) => {
@@ -136,8 +144,19 @@ export function Thoughts() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleSave, handleNew])
 
+  const handleTutorialComplete = useCallback(() => {
+    setShowTutorial(false)
+  }, [])
+
+  const handleShowTutorial = useCallback(() => {
+    setShowTutorial(true)
+  }, [])
+
   return (
     <Layout>
+      {/* Tutorial Overlay */}
+      <ThoughtsTutorial isOpen={showTutorial} onComplete={handleTutorialComplete} />
+
       <div id="thoughts-page" className="h-[calc(100vh-2rem)] -m-6">
         <Allotment>
           {/* Left Panel: Topic Tree + Thoughts List (20%) */}
@@ -171,6 +190,7 @@ export function Thoughts() {
                   <ThoughtsToolbar
                     onSave={handleSave}
                     onNew={handleNew}
+                    onShowTutorial={handleShowTutorial}
                     isSaving={isSaving}
                     title={getTitle()}
                   />

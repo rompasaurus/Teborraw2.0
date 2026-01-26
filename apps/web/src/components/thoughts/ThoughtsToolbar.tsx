@@ -1,9 +1,10 @@
-import { Save, FilePlus, Loader2 } from 'lucide-react'
+import { Save, FilePlus, Loader2, HelpCircle } from 'lucide-react'
 import { useThoughtsEditorStore } from '@/store/thoughtsEditorStore'
 
 interface ThoughtsToolbarProps {
   onSave: () => void
   onNew: () => void
+  onShowTutorial?: () => void
   isSaving?: boolean
   title?: string
 }
@@ -11,6 +12,7 @@ interface ThoughtsToolbarProps {
 export function ThoughtsToolbar({
   onSave,
   onNew,
+  onShowTutorial,
   isSaving,
   title,
 }: ThoughtsToolbarProps) {
@@ -42,6 +44,16 @@ export function ThoughtsToolbar({
       </div>
 
       <div id="thoughts-toolbar-actions" className="flex items-center gap-2">
+        {onShowTutorial && (
+          <button
+            id="thoughts-help-btn"
+            onClick={onShowTutorial}
+            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors"
+            title="Show tutorial"
+          >
+            <HelpCircle className="w-5 h-5" />
+          </button>
+        )}
         <button
           id="thoughts-new-btn"
           onClick={onNew}
