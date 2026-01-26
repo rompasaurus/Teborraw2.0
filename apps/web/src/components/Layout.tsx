@@ -1,10 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   Activity,
   Calendar,
-  ChevronLeft,
-  ChevronRight,
+  GripVertical,
   Lightbulb,
   LogOut,
   Map,
@@ -17,6 +16,13 @@ import { authApi } from '@/services/api'
 interface LayoutProps {
   children: React.ReactNode
 }
+
+// Constants for sidebar dimensions
+const SIDEBAR_MIN_WIDTH = 64 // Collapsed width
+const SIDEBAR_MAX_WIDTH = 320
+const SIDEBAR_DEFAULT_WIDTH = 256
+const SIDEBAR_COLLAPSE_THRESHOLD = 140 // Auto-collapse when text would overlap
+const STORAGE_KEY = 'teboraw-sidebar-width'
 
 // Custom Teboraw logo icon - a stylized "T" with activity waves
 function TeborawIcon({ className }: { className?: string }) {
@@ -66,11 +72,89 @@ const navItems = [
   { path: '/settings', label: 'Settings', icon: Settings },
 ]
 
+// Load saved width from localStorage
+function getSavedWidth(): number {
+  if (typeof window === 'undefined') return SIDEBAR_DEFAULT_WIDTH
+  const saved = localStorage.getItem(STORAGE_KEY)
+  if (saved) {
+    const width = parseInt(saved, 10)
+    if (!isNaN(width) && width >= SIDEBAR_MIN_WIDTH && width <= SIDEBAR_MAX_WIDTH) {
+      return width
+    }
+  }
+  return SIDEBAR_DEFAULT_WIDTH
+}
+
+// Save width to localStorage
+function saveWidth(width: number): void {
+  localStorage.setItem(STORAGE_KEY, String(width))
+}
+
 export function Layout({ children }: LayoutProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, refreshToken, logout } = useAuthStore()
-  const [isCollapsed, setIsCollapsed] = useState(false)
+
+  // Initialize width from localStorage
+  const [sidebarWidth, setSidebarWidth] = useState(getSavedWidth)
+  const [isDragging, setIsDragging] = useState(false)
+  const sidebarRef = useRef<HTMLElement>(null)
+  const dragStartX = useRef(0)
+  const dragStartWidth = useRef(0)
+
+  // Determine if sidebar should show text based on width
+  const showText = sidebarWidth > SIDEBAR_COLLAPSE_THRESHOLD
+
+  // Save width to localStorage when it changes
+  useEffect(() => {
+    saveWidth(sidebarWidth)
+  }, [sidebarWidth])
+
+  // Handle mouse down on resize handle
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+    dragStartX.current = e.clientX
+    dragStartWidth.current = sidebarWidth
+  }, [sidebarWidth])
+
+  // Handle mouse move during drag
+  useEffect(() => {
+    if (!isDragging) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const delta = e.clientX - dragStartX.current
+      let newWidth = dragStartWidth.current + delta
+
+      // Clamp width between min and max
+      newWidth = Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, newWidth))
+
+      // Auto-collapse to minimum if below threshold
+      if (newWidth <= SIDEBAR_COLLAPSE_THRESHOLD) {
+        setSidebarWidth(SIDEBAR_MIN_WIDTH)
+      } else {
+        setSidebarWidth(newWidth)
+      }
+    }
+
+    const handleMouseUp = () => {
+      setIsDragging(false)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    // Add cursor style to body during drag
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [isDragging])
 
   const handleLogout = async () => {
     if (refreshToken) {
@@ -89,37 +173,26 @@ export function Layout({ children }: LayoutProps) {
       {/* Sidebar */}
       <aside
         id="layout-sidebar"
-        className={`${
-          isCollapsed ? 'w-16' : 'w-64'
-        } bg-slate-800 border-r border-slate-700 flex flex-col transition-all duration-300`}
+        ref={sidebarRef}
+        className="bg-slate-800 border-r border-slate-700 flex flex-col relative flex-shrink-0"
+        style={{
+          width: sidebarWidth,
+          transition: isDragging ? 'none' : 'width 0.2s ease-out'
+        }}
       >
         <div id="layout-logo-section" className="p-4 border-b border-slate-700 flex items-center justify-between">
-          <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center w-full' : ''}`}>
+          <div className={`flex items-center gap-3 ${!showText ? 'justify-center w-full' : ''}`}>
             <TeborawIcon className="w-8 h-8 text-primary-500 flex-shrink-0" />
-            {!isCollapsed && (
-              <div>
-                <h1 className="text-xl font-bold text-primary-500">Teboraw</h1>
-                <p className="text-xs text-slate-400">Activity Tracker</p>
+            {showText && (
+              <div className="overflow-hidden">
+                <h1 className="text-xl font-bold text-primary-500 whitespace-nowrap">Teboraw</h1>
+                <p className="text-xs text-slate-400 whitespace-nowrap">Activity Tracker</p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Collapse toggle button */}
-        <button
-          id="layout-sidebar-collapse-btn"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="absolute top-20 -right-3 w-6 h-6 bg-slate-700 border border-slate-600 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-600 transition-colors z-10"
-          style={{ left: isCollapsed ? '52px' : '252px' }}
-        >
-          {isCollapsed ? (
-            <ChevronRight className="w-4 h-4" />
-          ) : (
-            <ChevronLeft className="w-4 h-4" />
-          )}
-        </button>
-
-        <nav id="layout-nav" className="flex-1 p-2">
+        <nav id="layout-nav" className="flex-1 p-2 overflow-hidden">
           <ul id="layout-nav-list" className="space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon
@@ -133,11 +206,11 @@ export function Layout({ children }: LayoutProps) {
                       isActive
                         ? 'bg-primary-600 text-white'
                         : 'text-slate-300 hover:bg-slate-700'
-                    } ${isCollapsed ? 'justify-center' : ''}`}
-                    title={isCollapsed ? item.label : undefined}
+                    } ${!showText ? 'justify-center' : ''}`}
+                    title={!showText ? item.label : undefined}
                   >
                     <Icon className="w-5 h-5 flex-shrink-0" />
-                    {!isCollapsed && <span>{item.label}</span>}
+                    {showText && <span className="whitespace-nowrap overflow-hidden">{item.label}</span>}
                   </Link>
                 </li>
               )
@@ -147,12 +220,12 @@ export function Layout({ children }: LayoutProps) {
 
         {/* User section */}
         <div id="layout-user-section" className="p-2 border-t border-slate-700">
-          <div id="layout-user-info" className={`flex items-center gap-3 px-3 py-2 ${isCollapsed ? 'justify-center' : ''}`}>
+          <div id="layout-user-info" className={`flex items-center gap-3 px-3 py-2 ${!showText ? 'justify-center' : ''}`}>
             <div id="layout-user-avatar" className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0">
               <User className="w-4 h-4 text-slate-400" />
             </div>
-            {!isCollapsed && (
-              <div className="flex-1 min-w-0">
+            {showText && (
+              <div className="flex-1 min-w-0 overflow-hidden">
                 <p id="layout-user-name" className="text-sm font-medium text-white truncate">
                   {user?.displayName}
                 </p>
@@ -164,13 +237,29 @@ export function Layout({ children }: LayoutProps) {
             id="layout-logout-btn"
             onClick={handleLogout}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-700 w-full mt-1 transition-colors ${
-              isCollapsed ? 'justify-center' : ''
+              !showText ? 'justify-center' : ''
             }`}
-            title={isCollapsed ? 'Logout' : undefined}
+            title={!showText ? 'Logout' : undefined}
           >
             <LogOut className="w-5 h-5 flex-shrink-0" />
-            {!isCollapsed && <span>Logout</span>}
+            {showText && <span className="whitespace-nowrap">Logout</span>}
           </button>
+        </div>
+
+        {/* Resize handle */}
+        <div
+          id="layout-sidebar-resize-handle"
+          onMouseDown={handleMouseDown}
+          className={`absolute top-0 right-0 w-1 h-full cursor-col-resize group hover:bg-primary-500/50 transition-colors ${
+            isDragging ? 'bg-primary-500' : 'bg-transparent'
+          }`}
+        >
+          {/* Visual indicator on hover */}
+          <div className={`absolute top-1/2 -translate-y-1/2 -right-1 w-3 h-8 rounded bg-slate-600 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity ${
+            isDragging ? 'opacity-100 bg-primary-500' : ''
+          }`}>
+            <GripVertical className="w-3 h-3 text-slate-300" />
+          </div>
         </div>
       </aside>
 
