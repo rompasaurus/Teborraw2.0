@@ -16,9 +16,9 @@ interface LayoutProps {
 }
 
 const navItems = [
+  { path: '/thoughts', label: 'Thoughts', icon: Lightbulb },
   { path: '/dashboard', label: 'Timeline', icon: Activity },
   { path: '/calendar', label: 'Calendar', icon: Calendar },
-  { path: '/thoughts', label: 'Thoughts', icon: Lightbulb },
   { path: '/locations', label: 'Locations', icon: Map },
   { path: '/settings', label: 'Settings', icon: Settings },
 ]
