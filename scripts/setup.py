@@ -906,7 +906,7 @@ def print_monitor_menu():
     print(f"    {Colors.GREEN}[4]{Colors.NC} View logs")
     print(f"    {Colors.GREEN}[5]{Colors.NC} Stop all services")
     print(f"    {Colors.GREEN}[6]{Colors.NC} Start all services")
-    print(f"    {Colors.GREEN}[r]{Colors.NC} Refresh status")
+    print(f"    {Colors.GREEN}[7]{Colors.NC} Install Chrome extension")
     print(f"    {Colors.GREEN}[q]{Colors.NC} Quit monitor")
     print()
 
@@ -1037,69 +1037,214 @@ def start_all_services(project_root: str):
     time.sleep(2)
 
 
-def monitor_services(project_root: str):
-    """Interactive service monitor"""
-    print_header("Teboraw Service Monitor")
+def input_with_timeout(prompt: str, timeout: float = 5.0) -> str:
+    """Get input with timeout, returns empty string if timeout"""
+    import sys
+    import select
 
-    while True:
-        clear_screen()
-        print_monitor_header()
+    print(prompt, end='', flush=True)
 
-        # Get container status
-        containers = get_container_stats(project_root)
+    if platform.system() == 'Windows':
+        # Windows doesn't support select on stdin, use msvcrt
+        import msvcrt
+        start_time = time.time()
+        input_chars = []
 
-        if not containers:
-            print(f"  {Colors.YELLOW}No containers found. Services may not be running.{Colors.NC}")
-            print()
-            print(f"  {Colors.CYAN}Options:{Colors.NC}")
-            print(f"    {Colors.GREEN}[6]{Colors.NC} Start all services")
-            print(f"    {Colors.GREEN}[q]{Colors.NC} Quit")
-            print()
-            choice = input(f"  {Colors.YELLOW}>{Colors.NC} ").strip().lower()
+        while True:
+            if msvcrt.kbhit():
+                char = msvcrt.getwch()
+                if char == '\r' or char == '\n':
+                    print()
+                    return ''.join(input_chars)
+                elif char == '\x03':  # Ctrl+C
+                    raise KeyboardInterrupt
+                elif char == '\x08':  # Backspace
+                    if input_chars:
+                        input_chars.pop()
+                        print('\b \b', end='', flush=True)
+                else:
+                    input_chars.append(char)
+                    print(char, end='', flush=True)
 
-            if choice == '6':
-                start_all_services(project_root)
-                continue
-            elif choice == 'q':
-                break
-            continue
+            if time.time() - start_time > timeout:
+                print()
+                return ''
 
-        # Print status table
-        print_service_status(containers, project_root)
+            time.sleep(0.05)
+    else:
+        # Unix - use select
+        ready, _, _ = select.select([sys.stdin], [], [], timeout)
+        if ready:
+            return sys.stdin.readline().strip()
+        print()
+        return ''
 
-        # Print menu
+
+def get_service_table_lines(containers: list) -> list:
+    """Generate status table lines for all services"""
+    endpoints = {
+        'api': 'http://localhost:5000/health',
+        'web': 'http://localhost:5173',
+        'pgadmin': 'http://localhost:5050',
+    }
+
+    lines = []
+    for container in containers:
+        name = container.get('Service', container.get('Name', 'unknown'))
+        state = container.get('State', 'unknown')
+        container_name = container.get('Name', '')
+
+        health_info = get_container_health(container_name)
+        health = health_info.get('health', 'N/A')
+
+        response = '-'
+        if name in endpoints and state == 'running':
+            ok, _, resp_time = check_service_uptime(endpoints[name])
+            response = f"{Colors.GREEN}{resp_time}{Colors.NC}" if ok else f"{Colors.RED}down{Colors.NC}"
+
+        if state == 'running':
+            status_str = f"{Colors.GREEN}{state:<12}{Colors.NC}"
+        elif state == 'exited':
+            status_str = f"{Colors.RED}{state:<12}{Colors.NC}"
+        else:
+            status_str = f"{Colors.YELLOW}{state:<12}{Colors.NC}"
+
+        if health == 'healthy':
+            health_str = f"{Colors.GREEN}{health:<12}{Colors.NC}"
+        elif health == 'unhealthy':
+            health_str = f"{Colors.RED}{health:<12}{Colors.NC}"
+        else:
+            health_str = f"{Colors.YELLOW}{health:<12}{Colors.NC}"
+
+        lines.append(f"  {name:<12} {status_str} {health_str} {response:<12} {container_name:<20}")
+
+    return lines
+
+
+def move_cursor_up(lines: int):
+    """Move cursor up N lines"""
+    if lines > 0:
+        print(f"\033[{lines}A", end='', flush=True)
+
+
+def move_cursor_down(lines: int):
+    """Move cursor down N lines"""
+    if lines > 0:
+        print(f"\033[{lines}B", end='', flush=True)
+
+
+def move_cursor_to_column(col: int):
+    """Move cursor to specific column"""
+    print(f"\033[{col}G", end='', flush=True)
+
+
+def clear_line():
+    """Clear current line"""
+    print("\033[2K", end='', flush=True)
+
+
+def draw_monitor_screen(project_root: str, containers: list, timestamp: str):
+    """Draw the full monitor screen"""
+    clear_screen()
+    print_monitor_header()
+
+    if not containers:
+        print(f"  {Colors.YELLOW}No containers found. Services may not be running.{Colors.NC}")
+        print()
+        print(f"  {Colors.CYAN}Options:{Colors.NC}")
+        print(f"    {Colors.GREEN}[6]{Colors.NC} Start all services")
+        print(f"    {Colors.GREEN}[q]{Colors.NC} Quit")
+    else:
+        print(f"  {'Service':<12} {'Status':<12} {'Health':<12} {'Response':<12} {'Container':<20}")
+        print(f"  {'-' * 12} {'-' * 12} {'-' * 12} {'-' * 12} {'-' * 20}")
+        for line in get_service_table_lines(containers):
+            print(line)
+        print()
         print_monitor_menu()
-
-        # Get user input
-        choice = input(f"  {Colors.YELLOW}>{Colors.NC} ").strip().lower()
-
-        if choice == 'q':
-            break
-        elif choice == 'r':
-            continue
-        elif choice == '1':
-            service = select_service(containers)
-            if service:
-                reload_service(project_root, service)
-        elif choice == '2':
-            service = select_service(containers)
-            if service:
-                restart_service(project_root, service)
-        elif choice == '3':
-            confirm = input(f"  {Colors.YELLOW}Rebuild all services without cache? [y/N]:{Colors.NC} ").strip().lower()
-            if confirm == 'y':
-                rebuild_all_services(project_root)
-        elif choice == '4':
-            service = select_service(containers)
-            if service:
-                view_logs(project_root, service)
-        elif choice == '5':
-            stop_all_services(project_root)
-        elif choice == '6':
-            start_all_services(project_root)
+        print(f"  {Colors.CYAN}Auto-refresh every 5s | Last update: {timestamp}{Colors.NC}")
 
     print()
-    print_success("Monitor closed")
+    print(f"  {Colors.YELLOW}>{Colors.NC} ", end='', flush=True)
+
+
+def monitor_services(project_root: str):
+    """Interactive service monitor with auto-refresh"""
+    import sys
+    import select
+
+    # Initial draw
+    containers = get_container_stats(project_root)
+    timestamp = time.strftime("%H:%M:%S")
+    draw_monitor_screen(project_root, containers, timestamp)
+
+    while True:
+        # Non-blocking input with 5s timeout
+        if platform.system() == 'Windows':
+            import msvcrt
+            start_time = time.time()
+            input_chars = []
+
+            while time.time() - start_time < 5.0:
+                if msvcrt.kbhit():
+                    char = msvcrt.getwch()
+                    if char == '\r' or char == '\n':
+                        choice = ''.join(input_chars).strip().lower()
+                        break
+                    elif char == '\x03':
+                        raise KeyboardInterrupt
+                    elif char == '\x08':
+                        if input_chars:
+                            input_chars.pop()
+                            print('\b \b', end='', flush=True)
+                    else:
+                        input_chars.append(char)
+                        print(char, end='', flush=True)
+                time.sleep(0.05)
+            else:
+                choice = ''
+        else:
+            ready, _, _ = select.select([sys.stdin], [], [], 5.0)
+            if ready:
+                choice = sys.stdin.readline().strip().lower()
+            else:
+                choice = ''
+
+        # Handle input
+        if choice == 'q':
+            print()
+            print_success("Monitor closed")
+            break
+        elif choice in ['1', '2', '3', '4', '5', '6', '7']:
+            print()
+            containers = get_container_stats(project_root)
+
+            if choice == '1':
+                service = select_service(containers)
+                if service:
+                    reload_service(project_root, service)
+            elif choice == '2':
+                service = select_service(containers)
+                if service:
+                    restart_service(project_root, service)
+            elif choice == '3':
+                confirm = input(f"  {Colors.YELLOW}Rebuild all services without cache? [y/N]:{Colors.NC} ").strip().lower()
+                if confirm == 'y':
+                    rebuild_all_services(project_root)
+            elif choice == '4':
+                service = select_service(containers)
+                if service:
+                    view_logs(project_root, service)
+            elif choice == '5':
+                stop_all_services(project_root)
+            elif choice == '6':
+                start_all_services(project_root)
+            elif choice == '7':
+                install_chrome_extension(project_root)
+
+        # Refresh screen
+        containers = get_container_stats(project_root)
+        timestamp = time.strftime("%H:%M:%S")
+        draw_monitor_screen(project_root, containers, timestamp)
 
 
 def setup_local(project_root: str):
