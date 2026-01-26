@@ -656,21 +656,22 @@ export function Dashboard() {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
+      <div id="dashboard-page" className="max-w-7xl mx-auto">
+        <div id="dashboard-header" className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-white">Timeline</h1>
-            <p className="text-slate-400 mt-1">Your recent activity</p>
+            <h1 id="dashboard-title" className="text-3xl font-bold text-white">Timeline</h1>
+            <p id="dashboard-subtitle" className="text-slate-400 mt-1">Your recent activity</p>
           </div>
         </div>
 
         {/* Filters and Search */}
-        <div className="card mb-6">
+        <div id="dashboard-filters-card" className="card mb-6">
           <div className="space-y-4">
             {/* Search Bar */}
-            <div className="relative">
+            <div id="dashboard-search-container" className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input
+                id="dashboard-search-input"
                 type="text"
                 placeholder="Search activities..."
                 value={searchQuery}
@@ -680,13 +681,14 @@ export function Dashboard() {
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap gap-4">
+            <div id="dashboard-filters" className="flex flex-wrap gap-4">
               {/* Date Range Filter */}
-              <div>
-                <label className="text-xs text-slate-400 mb-1 block">
+              <div id="dashboard-date-filter">
+                <label id="dashboard-date-filter-label" className="text-xs text-slate-400 mb-1 block">
                   Date Range
                 </label>
                 <select
+                  id="dashboard-date-range-select"
                   value={dateRange}
                   onChange={(e) => setDateRange(e.target.value)}
                   className="input"
@@ -699,14 +701,15 @@ export function Dashboard() {
               </div>
 
               {/* Source Filter */}
-              <div>
-                <label className="text-xs text-slate-400 mb-1 block">
+              <div id="dashboard-source-filter">
+                <label id="dashboard-source-filter-label" className="text-xs text-slate-400 mb-1 block">
                   Sources
                 </label>
-                <div className="flex gap-2">
+                <div id="dashboard-source-filter-buttons" className="flex gap-2">
                   {['Desktop', 'Browser', 'Mobile'].map((source) => (
                     <button
                       key={source}
+                      id={`dashboard-source-filter-${source.toLowerCase()}`}
                       onClick={() => toggleSourceFilter(source)}
                       className={`px-3 py-1.5 rounded text-sm transition-colors ${
                         selectedSources.includes(source)
@@ -721,14 +724,15 @@ export function Dashboard() {
               </div>
 
               {/* Type Filter */}
-              <div className="flex-1">
-                <label className="text-xs text-slate-400 mb-1 block">
+              <div id="dashboard-type-filter" className="flex-1">
+                <label id="dashboard-type-filter-label" className="text-xs text-slate-400 mb-1 block">
                   Activity Types
                 </label>
-                <div className="flex flex-wrap gap-2">
+                <div id="dashboard-type-filter-buttons" className="flex flex-wrap gap-2">
                   {activityTypes.map((type) => (
                     <button
                       key={type}
+                      id={`dashboard-type-filter-${type.toLowerCase()}`}
                       onClick={() => toggleTypeFilter(type)}
                       className={`px-3 py-1.5 rounded text-sm transition-colors ${
                         selectedTypes.includes(type)
@@ -748,29 +752,30 @@ export function Dashboard() {
               selectedTypes.length > 0 ||
               searchQuery ||
               dateRange !== 'all') && (
-              <div className="flex items-center gap-2 text-sm">
+              <div id="dashboard-active-filters" className="flex items-center gap-2 text-sm">
                 <span className="text-slate-400">Active filters:</span>
                 {selectedSources.length > 0 && (
-                  <span className="px-2 py-1 bg-slate-700 rounded text-slate-300">
+                  <span id="dashboard-active-sources-badge" className="px-2 py-1 bg-slate-700 rounded text-slate-300">
                     {selectedSources.length} sources
                   </span>
                 )}
                 {selectedTypes.length > 0 && (
-                  <span className="px-2 py-1 bg-slate-700 rounded text-slate-300">
+                  <span id="dashboard-active-types-badge" className="px-2 py-1 bg-slate-700 rounded text-slate-300">
                     {selectedTypes.length} types
                   </span>
                 )}
                 {dateRange !== 'all' && (
-                  <span className="px-2 py-1 bg-slate-700 rounded text-slate-300">
+                  <span id="dashboard-active-date-badge" className="px-2 py-1 bg-slate-700 rounded text-slate-300">
                     {dateRange}
                   </span>
                 )}
                 {searchQuery && (
-                  <span className="px-2 py-1 bg-slate-700 rounded text-slate-300">
+                  <span id="dashboard-active-search-badge" className="px-2 py-1 bg-slate-700 rounded text-slate-300">
                     "{searchQuery}"
                   </span>
                 )}
                 <button
+                  id="dashboard-clear-filters-btn"
                   onClick={() => {
                     setSelectedSources([])
                     setSelectedTypes([])
@@ -787,27 +792,27 @@ export function Dashboard() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          <div className="card">
+        <div id="dashboard-stats" className="grid grid-cols-4 gap-4 mb-6">
+          <div id="dashboard-stats-total" className="card">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-primary-500/20 flex items-center justify-center">
                 <Activity className="w-5 h-5 text-primary-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">
+                <p id="dashboard-stats-total-count" className="text-2xl font-bold text-white">
                   {filteredAndSortedActivities.length}
                 </p>
                 <p className="text-sm text-slate-400">Total</p>
               </div>
             </div>
           </div>
-          <div className="card">
+          <div id="dashboard-stats-desktop" className="card">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
                 <Monitor className="w-5 h-5 text-green-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">
+                <p id="dashboard-stats-desktop-count" className="text-2xl font-bold text-white">
                   {
                     filteredAndSortedActivities.filter(
                       (a: any) => a.source === 'Desktop' || a.source === 0
@@ -818,13 +823,13 @@ export function Dashboard() {
               </div>
             </div>
           </div>
-          <div className="card">
+          <div id="dashboard-stats-browser" className="card">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
                 <Globe className="w-5 h-5 text-blue-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">
+                <p id="dashboard-stats-browser-count" className="text-2xl font-bold text-white">
                   {
                     filteredAndSortedActivities.filter(
                       (a: any) => a.source === 'Browser' || a.source === 1
@@ -835,13 +840,13 @@ export function Dashboard() {
               </div>
             </div>
           </div>
-          <div className="card">
+          <div id="dashboard-stats-mobile" className="card">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
                 <Smartphone className="w-5 h-5 text-purple-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">
+                <p id="dashboard-stats-mobile-count" className="text-2xl font-bold text-white">
                   {
                     filteredAndSortedActivities.filter(
                       (a: any) => a.source === 'Mobile' || a.source === 2
@@ -855,16 +860,17 @@ export function Dashboard() {
         </div>
 
         {/* Activity Table */}
-        <div className="card">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-white">
+        <div id="dashboard-activity-card" className="card">
+          <div id="dashboard-activity-header" className="mb-4 flex items-center justify-between">
+            <h2 id="dashboard-activity-title" className="text-lg font-semibold text-white">
               Activity Timeline
             </h2>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-slate-400">
+            <div id="dashboard-activity-controls" className="flex items-center gap-4">
+              <span id="dashboard-activity-count" className="text-sm text-slate-400">
                 {filteredAndSortedActivities.length} of {data?.data?.totalCount ?? 0} activities
               </span>
               <select
+                id="dashboard-page-size-select"
                 value={pageSize}
                 onChange={(e) => setPageSize(Number(e.target.value))}
                 className="input text-sm py-1"
@@ -876,16 +882,16 @@ export function Dashboard() {
                 <option value={2500}>2,500</option>
                 <option value={5000}>5,000</option>
               </select>
-              {isFetching && <span className="text-xs text-slate-500">Loading...</span>}
+              {isFetching && <span id="dashboard-loading-indicator" className="text-xs text-slate-500">Loading...</span>}
             </div>
           </div>
 
           {isLoading ? (
-            <div className="text-center py-12 text-slate-400">
+            <div id="dashboard-loading-message" className="text-center py-12 text-slate-400">
               Loading activities...
             </div>
           ) : filteredAndSortedActivities.length === 0 ? (
-            <div className="text-center py-12">
+            <div id="dashboard-empty-state" className="text-center py-12">
               <Activity className="w-12 h-12 text-slate-600 mx-auto mb-4" />
               <p className="text-slate-400">No activities found</p>
               <p className="text-sm text-slate-500 mt-1">
@@ -895,12 +901,13 @@ export function Dashboard() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
+            <div id="dashboard-table-container" className="overflow-x-auto">
+              <table id="dashboard-activity-table" className="w-full">
+                <thead id="dashboard-table-header">
                   <tr className="border-b border-slate-700">
-                    <th className="text-left py-3 px-4">
+                    <th id="dashboard-table-header-type" className="text-left py-3 px-4">
                       <button
+                        id="dashboard-sort-type-btn"
                         onClick={() => toggleSort('type')}
                         className="flex items-center gap-2 text-sm font-medium text-slate-400 hover:text-white transition-colors"
                       >
@@ -908,8 +915,9 @@ export function Dashboard() {
                         {getSortIcon('type')}
                       </button>
                     </th>
-                    <th className="text-left py-3 px-4">
+                    <th id="dashboard-table-header-source" className="text-left py-3 px-4">
                       <button
+                        id="dashboard-sort-source-btn"
                         onClick={() => toggleSort('source')}
                         className="flex items-center gap-2 text-sm font-medium text-slate-400 hover:text-white transition-colors"
                       >
@@ -917,13 +925,14 @@ export function Dashboard() {
                         {getSortIcon('source')}
                       </button>
                     </th>
-                    <th className="text-left py-3 px-4">
+                    <th id="dashboard-table-header-details" className="text-left py-3 px-4">
                       <span className="text-sm font-medium text-slate-400">
                         Details
                       </span>
                     </th>
-                    <th className="text-left py-3 px-4">
+                    <th id="dashboard-table-header-time" className="text-left py-3 px-4">
                       <button
+                        id="dashboard-sort-time-btn"
                         onClick={() => toggleSort('timestamp')}
                         className="flex items-center gap-2 text-sm font-medium text-slate-400 hover:text-white transition-colors"
                       >
@@ -934,7 +943,7 @@ export function Dashboard() {
                     <th className="w-12"></th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody id="dashboard-table-body">
                   {filteredAndSortedActivities.map((activity: any) => {
                     const activityType =
                       typeof activity.type === 'string'
@@ -958,6 +967,7 @@ export function Dashboard() {
                       <>
                         <tr
                           key={activity.id}
+                          id={`dashboard-activity-row-${activity.id}`}
                           className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors cursor-pointer"
                           onClick={() => toggleExpanded(activity.id)}
                         >
@@ -1015,7 +1025,7 @@ export function Dashboard() {
                           </td>
                         </tr>
                         {isExpanded && (
-                          <tr key={`${activity.id}-expanded`}>
+                          <tr key={`${activity.id}-expanded`} id={`dashboard-activity-details-${activity.id}`}>
                             <td colSpan={5} className="bg-slate-800/50 p-4">
                               <div className="grid grid-cols-2 gap-6">
                                 <div>

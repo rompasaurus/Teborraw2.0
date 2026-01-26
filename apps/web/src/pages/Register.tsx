@@ -31,21 +31,21 @@ export function Register() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-primary-500 mb-2">Teboraw</h1>
-          <p className="text-slate-400">Personal Activity Tracker</p>
+    <div id="register-page" className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+      <div id="register-container" className="w-full max-w-md">
+        <div id="register-header" className="text-center mb-8">
+          <h1 id="register-brand-title" className="text-4xl font-bold text-primary-500 mb-2">Teboraw</h1>
+          <p id="register-brand-subtitle" className="text-slate-400">Personal Activity Tracker</p>
         </div>
 
-        <div className="card">
-          <h2 className="text-2xl font-semibold text-white mb-6">
+        <div id="register-card" className="card">
+          <h2 id="register-title" className="text-2xl font-semibold text-white mb-6">
             Create your account
           </h2>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form id="register-form" onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg text-sm">
+              <div id="register-error-message" className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg text-sm">
                 {error}
               </div>
             )}
@@ -103,12 +103,13 @@ export function Register() {
                 minLength={8}
                 required
               />
-              <p className="text-xs text-slate-500 mt-1">
+              <p id="register-password-hint" className="text-xs text-slate-500 mt-1">
                 Must be at least 8 characters
               </p>
             </div>
 
             <button
+              id="register-submit-btn"
               type="submit"
               disabled={registerMutation.isPending}
               className="btn-primary w-full disabled:opacity-50"
@@ -117,9 +118,10 @@ export function Register() {
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-400">
+          <p id="register-login-prompt" className="mt-6 text-center text-sm text-slate-400">
             Already have an account?{' '}
             <Link
+              id="register-login-link"
               to="/login"
               className="text-primary-400 hover:text-primary-300"
             >

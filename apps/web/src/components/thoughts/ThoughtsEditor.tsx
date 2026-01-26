@@ -53,7 +53,7 @@ export function ThoughtsEditor({ onContentChange }: ThoughtsEditorProps) {
   }, [currentTopic])
 
   return (
-    <div className="h-full w-full">
+    <div id="thoughts-editor-wrapper" className="h-full w-full">
       <Editor
         height="100%"
         defaultLanguage="plaintext"
@@ -62,7 +62,7 @@ export function ThoughtsEditor({ onContentChange }: ThoughtsEditorProps) {
         onMount={handleEditorMount}
         options={EDITOR_OPTIONS}
         loading={
-          <div className="flex items-center justify-center h-full text-slate-400">
+          <div id="thoughts-editor-loading" className="flex items-center justify-center h-full text-slate-400">
             Loading editor...
           </div>
         }

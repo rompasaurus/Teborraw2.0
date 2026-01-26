@@ -85,14 +85,15 @@ export function Layout({ children }: LayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex">
+    <div id="layout-root" className="min-h-screen bg-slate-900 flex">
       {/* Sidebar */}
       <aside
+        id="layout-sidebar"
         className={`${
           isCollapsed ? 'w-16' : 'w-64'
         } bg-slate-800 border-r border-slate-700 flex flex-col transition-all duration-300`}
       >
-        <div className="p-4 border-b border-slate-700 flex items-center justify-between">
+        <div id="layout-logo-section" className="p-4 border-b border-slate-700 flex items-center justify-between">
           <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center w-full' : ''}`}>
             <TeborawIcon className="w-8 h-8 text-primary-500 flex-shrink-0" />
             {!isCollapsed && (
@@ -106,6 +107,7 @@ export function Layout({ children }: LayoutProps) {
 
         {/* Collapse toggle button */}
         <button
+          id="layout-sidebar-collapse-btn"
           onClick={() => setIsCollapsed(!isCollapsed)}
           className="absolute top-20 -right-3 w-6 h-6 bg-slate-700 border border-slate-600 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-600 transition-colors z-10"
           style={{ left: isCollapsed ? '52px' : '252px' }}
@@ -117,14 +119,15 @@ export function Layout({ children }: LayoutProps) {
           )}
         </button>
 
-        <nav className="flex-1 p-2">
-          <ul className="space-y-1">
+        <nav id="layout-nav" className="flex-1 p-2">
+          <ul id="layout-nav-list" className="space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon
               const isActive = location.pathname === item.path
               return (
                 <li key={item.path}>
                   <Link
+                    id={`layout-nav-${item.label.toLowerCase()}`}
                     to={item.path}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
                       isActive
@@ -143,21 +146,22 @@ export function Layout({ children }: LayoutProps) {
         </nav>
 
         {/* User section */}
-        <div className="p-2 border-t border-slate-700">
-          <div className={`flex items-center gap-3 px-3 py-2 ${isCollapsed ? 'justify-center' : ''}`}>
-            <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0">
+        <div id="layout-user-section" className="p-2 border-t border-slate-700">
+          <div id="layout-user-info" className={`flex items-center gap-3 px-3 py-2 ${isCollapsed ? 'justify-center' : ''}`}>
+            <div id="layout-user-avatar" className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0">
               <User className="w-4 h-4 text-slate-400" />
             </div>
             {!isCollapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">
+                <p id="layout-user-name" className="text-sm font-medium text-white truncate">
                   {user?.displayName}
                 </p>
-                <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+                <p id="layout-user-email" className="text-xs text-slate-400 truncate">{user?.email}</p>
               </div>
             )}
           </div>
           <button
+            id="layout-logout-btn"
             onClick={handleLogout}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-700 w-full mt-1 transition-colors ${
               isCollapsed ? 'justify-center' : ''
@@ -171,8 +175,8 @@ export function Layout({ children }: LayoutProps) {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">
-        <div className="p-8">{children}</div>
+      <main id="layout-main-content" className="flex-1 overflow-auto">
+        <div id="layout-content-wrapper" className="p-8">{children}</div>
       </main>
     </div>
   )

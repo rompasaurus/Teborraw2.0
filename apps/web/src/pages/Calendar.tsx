@@ -211,14 +211,15 @@ export function Calendar() {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto">
+      <div id="calendar-page" className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div id="calendar-header" className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-white">Calendar</h1>
-            <p className="text-slate-400 mt-1">Your activity overview by day</p>
+            <h1 id="calendar-title" className="text-3xl font-bold text-white">Calendar</h1>
+            <p id="calendar-subtitle" className="text-slate-400 mt-1">Your activity overview by day</p>
           </div>
           <button
+            id="calendar-today-btn"
             onClick={goToToday}
             className="btn-secondary"
           >
@@ -226,22 +227,24 @@ export function Calendar() {
           </button>
         </div>
 
-        <div className="flex gap-6">
+        <div id="calendar-content" className="flex gap-6">
           {/* Calendar Grid */}
-          <div className={`flex-1 ${selectedDay ? 'lg:w-2/3' : 'w-full'}`}>
-            <div className="card">
+          <div id="calendar-grid-section" className={`flex-1 ${selectedDay ? 'lg:w-2/3' : 'w-full'}`}>
+            <div id="calendar-card" className="card">
               {/* Month Navigation */}
-              <div className="flex items-center justify-between mb-6">
+              <div id="calendar-month-nav" className="flex items-center justify-between mb-6">
                 <button
+                  id="calendar-prev-month-btn"
                   onClick={() => navigateMonth('prev')}
                   className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
                 >
                   <ChevronLeft className="w-5 h-5 text-slate-400" />
                 </button>
-                <h2 className="text-xl font-semibold text-white">
+                <h2 id="calendar-month-title" className="text-xl font-semibold text-white">
                   {format(currentMonth, 'MMMM yyyy')}
                 </h2>
                 <button
+                  id="calendar-next-month-btn"
                   onClick={() => navigateMonth('next')}
                   className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
                 >
@@ -250,10 +253,11 @@ export function Calendar() {
               </div>
 
               {/* Day Headers */}
-              <div className="grid grid-cols-7 gap-1 mb-2">
+              <div id="calendar-day-headers" className="grid grid-cols-7 gap-1 mb-2">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
                   <div
                     key={day}
+                    id={`calendar-day-header-${day.toLowerCase()}`}
                     className="text-center text-sm font-medium text-slate-400 py-2"
                   >
                     {day}
@@ -263,11 +267,11 @@ export function Calendar() {
 
               {/* Calendar Days */}
               {isLoading ? (
-                <div className="text-center py-12 text-slate-400">
+                <div id="calendar-loading-message" className="text-center py-12 text-slate-400">
                   Loading calendar data...
                 </div>
               ) : (
-                <div className="grid grid-cols-7 gap-1">
+                <div id="calendar-grid" className="grid grid-cols-7 gap-1">
                   {calendarDays.map((day) => {
                     const dayKey = format(day, 'yyyy-MM-dd')
                     const dayData = dayDataMap.get(dayKey)
@@ -278,6 +282,7 @@ export function Calendar() {
                     return (
                       <button
                         key={dayKey}
+                        id={`calendar-day-${dayKey}`}
                         onClick={() => setSelectedDay(day)}
                         className={`
                           min-h-[100px] p-2 rounded-lg transition-all text-left flex flex-col
@@ -332,7 +337,7 @@ export function Calendar() {
               )}
 
               {/* Legend */}
-              <div className="mt-6 pt-4 border-t border-slate-700">
+              <div id="calendar-legend" className="mt-6 pt-4 border-t border-slate-700">
                 <div className="flex flex-wrap items-center gap-4 text-sm">
                   <span className="text-slate-400">Sources:</span>
                   <div className="flex items-center gap-2">
@@ -354,19 +359,20 @@ export function Calendar() {
 
           {/* Day Detail Panel */}
           {selectedDay && (
-            <div className="lg:w-1/3 min-w-[320px]">
-              <div className="card sticky top-8">
+            <div id="calendar-selected-panel" className="lg:w-1/3 min-w-[320px]">
+              <div id="calendar-selected-card" className="card sticky top-8">
                 {/* Panel Header */}
-                <div className="flex items-center justify-between mb-4">
+                <div id="calendar-selected-header" className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-white">
+                    <h3 id="calendar-selected-day-name" className="text-lg font-semibold text-white">
                       {format(selectedDay, 'EEEE')}
                     </h3>
-                    <p className="text-sm text-slate-400">
+                    <p id="calendar-selected-day-date" className="text-sm text-slate-400">
                       {format(selectedDay, 'MMMM d, yyyy')}
                     </p>
                   </div>
                   <button
+                    id="calendar-close-panel-btn"
                     onClick={() => setSelectedDay(null)}
                     className="p-1 hover:bg-slate-700 rounded transition-colors"
                   >
@@ -377,21 +383,21 @@ export function Calendar() {
                 {selectedDayData && selectedDayData.totalCount > 0 ? (
                   <>
                     {/* Day Stats */}
-                    <div className="grid grid-cols-2 gap-3 mb-6">
-                      <div className="bg-slate-700/50 rounded-lg p-3">
+                    <div id="calendar-day-stats" className="grid grid-cols-2 gap-3 mb-6">
+                      <div id="calendar-stat-activities" className="bg-slate-700/50 rounded-lg p-3">
                         <p className="text-2xl font-bold text-white">
                           {selectedDayData.totalCount}
                         </p>
                         <p className="text-xs text-slate-400">Activities</p>
                       </div>
-                      <div className="bg-slate-700/50 rounded-lg p-3">
+                      <div id="calendar-stat-duration" className="bg-slate-700/50 rounded-lg p-3">
                         <p className="text-2xl font-bold text-white">
                           {formatDuration(selectedDayData.totalDuration)}
                         </p>
                         <p className="text-xs text-slate-400">Tracked Time</p>
                       </div>
                       {selectedDayData.keystrokeCount > 0 && (
-                        <div className="bg-slate-700/50 rounded-lg p-3">
+                        <div id="calendar-stat-keystrokes" className="bg-slate-700/50 rounded-lg p-3">
                           <p className="text-2xl font-bold text-white">
                             {selectedDayData.keystrokeCount.toLocaleString()}
                           </p>
@@ -399,7 +405,7 @@ export function Calendar() {
                         </div>
                       )}
                       {selectedDayData.wordsTyped > 0 && (
-                        <div className="bg-slate-700/50 rounded-lg p-3">
+                        <div id="calendar-stat-words" className="bg-slate-700/50 rounded-lg p-3">
                           <p className="text-2xl font-bold text-white">
                             {selectedDayData.wordsTyped.toLocaleString()}
                           </p>
@@ -409,11 +415,11 @@ export function Calendar() {
                     </div>
 
                     {/* Activity Breakdown by Type */}
-                    <div className="mb-6">
+                    <div id="calendar-type-breakdown" className="mb-6">
                       <h4 className="text-sm font-medium text-slate-300 mb-3">
                         By Activity Type
                       </h4>
-                      <div className="space-y-2">
+                      <div id="calendar-type-breakdown-list" className="space-y-2">
                         {Object.entries(selectedDayData.byType)
                           .sort(([, a], [, b]) => b - a)
                           .map(([type, count]) => {
@@ -455,11 +461,11 @@ export function Calendar() {
                     </div>
 
                     {/* Activity Breakdown by Source */}
-                    <div className="mb-6">
+                    <div id="calendar-source-breakdown" className="mb-6">
                       <h4 className="text-sm font-medium text-slate-300 mb-3">
                         By Source
                       </h4>
-                      <div className="flex gap-2">
+                      <div id="calendar-source-breakdown-list" className="flex gap-2">
                         {Object.entries(selectedDayData.bySource).map(
                           ([source, count]) => {
                             const percentage = Math.round(
@@ -486,11 +492,11 @@ export function Calendar() {
                     </div>
 
                     {/* Recent Activities List */}
-                    <div>
+                    <div id="calendar-timeline-section">
                       <h4 className="text-sm font-medium text-slate-300 mb-3">
                         Activity Timeline
                       </h4>
-                      <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                      <div id="calendar-activity-timeline" className="space-y-2 max-h-[400px] overflow-y-auto">
                         {selectedDayData.activities
                           .sort(
                             (a, b) =>
@@ -513,6 +519,7 @@ export function Calendar() {
                             return (
                               <div
                                 key={activity.id}
+                                id={`calendar-activity-item-${activity.id}`}
                                 className="flex items-start gap-3 p-2 bg-slate-700/30 rounded-lg"
                               >
                                 <div
@@ -559,7 +566,7 @@ export function Calendar() {
                     </div>
                   </>
                 ) : (
-                  <div className="text-center py-8">
+                  <div id="calendar-empty-state" className="text-center py-8">
                     <Activity className="w-12 h-12 text-slate-600 mx-auto mb-3" />
                     <p className="text-slate-400">No activities recorded</p>
                     <p className="text-sm text-slate-500 mt-1">
@@ -573,27 +580,27 @@ export function Calendar() {
         </div>
 
         {/* Monthly Summary */}
-        <div className="mt-6 grid grid-cols-4 gap-4">
-          <div className="card">
+        <div id="calendar-monthly-summary" className="mt-6 grid grid-cols-4 gap-4">
+          <div id="calendar-summary-total" className="card">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-primary-500/20 flex items-center justify-center">
                 <Activity className="w-5 h-5 text-primary-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">
+                <p id="calendar-summary-total-count" className="text-2xl font-bold text-white">
                   {activities.length.toLocaleString()}
                 </p>
                 <p className="text-sm text-slate-400">Total Activities</p>
               </div>
             </div>
           </div>
-          <div className="card">
+          <div id="calendar-summary-desktop" className="card">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
                 <Monitor className="w-5 h-5 text-green-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">
+                <p id="calendar-summary-desktop-count" className="text-2xl font-bold text-white">
                   {activities.filter(
                     (a: any) => a.source === 'Desktop' || a.source === 0
                   ).length.toLocaleString()}
@@ -602,13 +609,13 @@ export function Calendar() {
               </div>
             </div>
           </div>
-          <div className="card">
+          <div id="calendar-summary-browser" className="card">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
                 <Globe className="w-5 h-5 text-blue-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">
+                <p id="calendar-summary-browser-count" className="text-2xl font-bold text-white">
                   {activities.filter(
                     (a: any) => a.source === 'Browser' || a.source === 1
                   ).length.toLocaleString()}
@@ -617,13 +624,13 @@ export function Calendar() {
               </div>
             </div>
           </div>
-          <div className="card">
+          <div id="calendar-summary-mobile" className="card">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
                 <Smartphone className="w-5 h-5 text-purple-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">
+                <p id="calendar-summary-mobile-count" className="text-2xl font-bold text-white">
                   {activities.filter(
                     (a: any) => a.source === 'Mobile' || a.source === 2
                   ).length.toLocaleString()}

@@ -138,11 +138,11 @@ export function Thoughts() {
 
   return (
     <Layout>
-      <div className="h-[calc(100vh-2rem)] -m-6">
+      <div id="thoughts-page" className="h-[calc(100vh-2rem)] -m-6">
         <Allotment>
           {/* Left Panel: Topic Tree + Thoughts List (20%) */}
           <Allotment.Pane preferredSize="20%" minSize={150} maxSize={400}>
-            <div className="h-full bg-slate-800 border-r border-slate-700">
+            <div id="thoughts-left-panel" className="h-full bg-slate-800 border-r border-slate-700">
               <Allotment vertical>
                 {/* Topic Tree */}
                 <Allotment.Pane preferredSize="60%">
@@ -150,7 +150,7 @@ export function Thoughts() {
                 </Allotment.Pane>
                 {/* Thoughts List */}
                 <Allotment.Pane>
-                  <div className="h-full border-t border-slate-700">
+                  <div id="thoughts-list-panel" className="h-full border-t border-slate-700">
                     <ThoughtsList
                       thoughts={thoughts}
                       isLoading={isLoadingList}
@@ -167,21 +167,21 @@ export function Thoughts() {
             <Allotment vertical>
               {/* Editor (75%) */}
               <Allotment.Pane preferredSize="75%">
-                <div className="h-full flex flex-col">
+                <div id="thoughts-editor-panel" className="h-full flex flex-col">
                   <ThoughtsToolbar
                     onSave={handleSave}
                     onNew={handleNew}
                     isSaving={isSaving}
                     title={getTitle()}
                   />
-                  <div className="flex-1 overflow-hidden">
+                  <div id="thoughts-editor-container" className="flex-1 overflow-hidden">
                     <ThoughtsEditor onContentChange={handleContentChange} />
                   </div>
                 </div>
               </Allotment.Pane>
               {/* Topic Details (25%) */}
               <Allotment.Pane preferredSize="25%" minSize={100}>
-                <div className="h-full bg-slate-800 border-t border-slate-700">
+                <div id="thoughts-details-panel" className="h-full bg-slate-800 border-t border-slate-700">
                   <TopicDetails topic={currentTopic} />
                 </div>
               </Allotment.Pane>

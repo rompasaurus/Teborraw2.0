@@ -34,7 +34,7 @@ export function ThoughtsList({
 
   if (isLoading) {
     return (
-      <div className="h-full flex items-center justify-center text-slate-500">
+      <div id="thoughts-list-loading" className="h-full flex items-center justify-center text-slate-500">
         <Loader2 className="w-5 h-5 animate-spin" />
       </div>
     )
@@ -42,7 +42,7 @@ export function ThoughtsList({
 
   if (thoughts.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-slate-500 p-4">
+      <div id="thoughts-list-empty" className="h-full flex flex-col items-center justify-center text-slate-500 p-4">
         <FileText className="w-8 h-8 mb-2" />
         <p className="text-sm text-center">No thoughts yet</p>
       </div>
@@ -50,16 +50,17 @@ export function ThoughtsList({
   }
 
   return (
-    <div className="h-full overflow-auto">
-      <div className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-700">
+    <div id="thoughts-list" className="h-full overflow-auto">
+      <div id="thoughts-list-header" className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-700">
         Recent Thoughts
       </div>
-      <div className="divide-y divide-slate-700/50">
+      <div id="thoughts-list-items" className="divide-y divide-slate-700/50">
         {thoughts.map((thought) => {
           const isActive = thought.id === currentThoughtId
           return (
             <button
               key={thought.id}
+              id={`thoughts-list-item-${thought.id}`}
               onClick={() => handleSelect(thought)}
               className={`w-full text-left px-3 py-2 hover:bg-slate-700/50 transition-colors ${
                 isActive ? 'bg-slate-700 border-l-2 border-primary-500' : ''

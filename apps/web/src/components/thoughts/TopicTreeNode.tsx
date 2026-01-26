@@ -28,8 +28,9 @@ export function TopicTreeNode({ node, level, path }: TopicTreeNodeProps) {
   )
 
   return (
-    <div className="select-none">
+    <div id={`topic-node-${path}`} className="select-none">
       <div
+        id={`topic-node-row-${path}`}
         className={`flex items-center gap-1 px-2 py-1 cursor-pointer hover:bg-slate-700 rounded ${
           isSelected ? 'bg-slate-700 text-primary-400' : 'text-slate-300'
         }`}
@@ -38,6 +39,7 @@ export function TopicTreeNode({ node, level, path }: TopicTreeNodeProps) {
       >
         {hasChildren ? (
           <button
+            id={`topic-node-toggle-${path}`}
             onClick={handleToggle}
             className="p-0.5 hover:bg-slate-600 rounded"
           >
@@ -51,11 +53,11 @@ export function TopicTreeNode({ node, level, path }: TopicTreeNodeProps) {
           <span className="w-5" />
         )}
         <FileText className="w-4 h-4 flex-shrink-0" />
-        <span className="truncate text-sm">{node.name || 'Untitled'}</span>
+        <span id={`topic-node-label-${path}`} className="truncate text-sm">{node.name || 'Untitled'}</span>
       </div>
 
       {hasChildren && isExpanded && (
-        <div>
+        <div id={`topic-node-children-${path}`}>
           {node.content!.map((child, index) => (
             <TopicTreeNode
               key={`${path}-${index}`}

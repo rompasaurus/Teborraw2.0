@@ -30,21 +30,21 @@ export function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-primary-500 mb-2">Teboraw</h1>
-          <p className="text-slate-400">Personal Activity Tracker</p>
+    <div id="login-page" className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+      <div id="login-container" className="w-full max-w-md">
+        <div id="login-header" className="text-center mb-8">
+          <h1 id="login-brand-title" className="text-4xl font-bold text-primary-500 mb-2">Teboraw</h1>
+          <p id="login-brand-subtitle" className="text-slate-400">Personal Activity Tracker</p>
         </div>
 
-        <div className="card">
-          <h2 className="text-2xl font-semibold text-white mb-6">
+        <div id="login-card" className="card">
+          <h2 id="login-title" className="text-2xl font-semibold text-white mb-6">
             Welcome back
           </h2>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form id="login-form" onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg text-sm">
+              <div id="login-error-message" className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg text-sm">
                 {error}
               </div>
             )}
@@ -86,6 +86,7 @@ export function Login() {
             </div>
 
             <button
+              id="login-submit-btn"
               type="submit"
               disabled={loginMutation.isPending}
               className="btn-primary w-full disabled:opacity-50"
@@ -94,9 +95,10 @@ export function Login() {
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-400">
+          <p id="login-register-prompt" className="mt-6 text-center text-sm text-slate-400">
             Don't have an account?{' '}
             <Link
+              id="login-register-link"
               to="/register"
               className="text-primary-400 hover:text-primary-300"
             >
