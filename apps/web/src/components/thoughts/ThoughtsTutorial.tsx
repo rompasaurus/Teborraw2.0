@@ -63,6 +63,13 @@ export function ThoughtsTutorial({ onComplete, isOpen }: ThoughtsTutorialProps) 
   const [currentStep, setCurrentStep] = useState(0)
   const [highlightRect, setHighlightRect] = useState<DOMRect | null>(null)
 
+  // Reset to first step when tutorial opens
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentStep(0)
+    }
+  }, [isOpen])
+
   const step = tutorialSteps[currentStep]
   const isLastStep = currentStep === tutorialSteps.length - 1
   const isFirstStep = currentStep === 0
