@@ -13,10 +13,14 @@ import {
   RecentTopics,
   ThoughtsTutorial,
   useShouldShowTutorial,
+  HistoryPanel,
+  HistoryDiffView,
 } from '@/components/thoughts'
 import { thoughtsApi } from '@/services/api'
 import { useThoughtsEditorStore } from '@/store/thoughtsEditorStore'
 import { useTopicParser } from '@/hooks/useTopicParser'
+import { useAutoSnapshot } from '@/hooks/useAutoSnapshot'
+import { useThoughtHistoryStore } from '@/store/thoughtHistoryStore'
 import type { Thought } from '@/types/journal'
 
 const TOPICS_SIDEBAR_COLLAPSED_KEY = 'teboraw-topics-sidebar-collapsed'
@@ -29,6 +33,11 @@ export function Thoughts() {
     const saved = localStorage.getItem(TOPICS_SIDEBAR_COLLAPSED_KEY)
     return saved === 'true'
   })
+  const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState(false)
+  const addHistoryEntry = useThoughtHistoryStore((s) => s.addHistoryEntry)
+  const selectedEntryId = useThoughtHistoryStore((s) => s.selectedEntryId)
+  const currentThoughtHistory = useThoughtHistoryStore((s) => s.currentThoughtHistory)
+  const selectedEntry = currentThoughtHistory.find((e) => e.id === selectedEntryId)
   const {
     currentThoughtId,
     draftContent,
@@ -46,6 +55,9 @@ export function Thoughts() {
     draftContent,
     currentThoughtId ?? undefined
   )
+
+  // Auto-snapshot for history tracking
+  useAutoSnapshot(currentThoughtId, draftContent, getTitle())
 
   // Update topic tree when content changes
   useEffect(() => {
@@ -117,11 +129,13 @@ export function Thoughts() {
 
   const handleSave = useCallback(() => {
     if (currentThoughtId) {
+      // Add history entry on save
+      addHistoryEntry(currentThoughtId, draftContent, getTitle(), 'save')
       updateMutation.mutate({ id: currentThoughtId, content: draftContent })
     } else {
       createMutation.mutate(draftContent)
     }
-  }, [currentThoughtId, draftContent, createMutation, updateMutation])
+  }, [currentThoughtId, draftContent, getTitle, addHistoryEntry, createMutation, updateMutation])
 
   const handleNew = useCallback(() => {
     createNewThought()
@@ -191,6 +205,22 @@ export function Thoughts() {
     [insertTextAtCursor]
   )
 
+  const handleShowHistory = useCallback(() => {
+    setIsHistoryPanelOpen(true)
+  }, [])
+
+  const handleCloseHistory = useCallback(() => {
+    setIsHistoryPanelOpen(false)
+  }, [])
+
+  const handleRestoreFromHistory = useCallback(
+    (content: string) => {
+      setDraftContent(content)
+      setIsHistoryPanelOpen(false)
+    },
+    [setDraftContent]
+  )
+
   return (
     <Layout>
       {/* Tutorial Overlay */}
@@ -231,6 +261,7 @@ export function Thoughts() {
                     onNew={handleNew}
                     onDelete={handleDelete}
                     onShowTutorial={handleShowTutorial}
+                    onShowHistory={handleShowHistory}
                     isSaving={isSaving}
                     isDeleting={isDeleting}
                     title={getTitle()}
@@ -240,11 +271,20 @@ export function Thoughts() {
                   </div>
                 </div>
               </Allotment.Pane>
-              {/* Topic Details (25%) */}
+              {/* Topic Details or Diff View (25%) */}
               <Allotment.Pane preferredSize="25%" minSize={100}>
-                <div id="thoughts-details-panel" className="h-full bg-slate-800 border-t border-slate-700">
-                  <TopicDetails topic={currentTopic} />
-                </div>
+                {isHistoryPanelOpen && selectedEntry ? (
+                  <HistoryDiffView
+                    originalContent={selectedEntry.content}
+                    modifiedContent={draftContent}
+                    originalTitle={`${selectedEntry.title} (${new Date(selectedEntry.timestamp).toLocaleString()})`}
+                    modifiedTitle="Current"
+                  />
+                ) : (
+                  <div id="thoughts-details-panel" className="h-full bg-slate-800 border-t border-slate-700">
+                    <TopicDetails topic={currentTopic} />
+                  </div>
+                )}
               </Allotment.Pane>
             </Allotment>
           </Allotment.Pane>
@@ -262,6 +302,19 @@ export function Thoughts() {
               onTopicClick={handleTopicClick}
             />
           </Allotment.Pane>
+
+          {/* History Panel (conditional) */}
+          {isHistoryPanelOpen && (
+            <Allotment.Pane preferredSize="20%" minSize={250} maxSize={400}>
+              <HistoryPanel
+                thoughtId={currentThoughtId}
+                currentContent={draftContent}
+                currentTitle={getTitle()}
+                onRestore={handleRestoreFromHistory}
+                onClose={handleCloseHistory}
+              />
+            </Allotment.Pane>
+          )}
         </Allotment>
       </div>
     </Layout>

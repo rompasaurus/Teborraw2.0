@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Save, FilePlus, Loader2, HelpCircle, Trash2 } from 'lucide-react'
+import { Save, FilePlus, Loader2, HelpCircle, Trash2, History } from 'lucide-react'
 import { useThoughtsEditorStore } from '@/store/thoughtsEditorStore'
 
 interface ThoughtsToolbarProps {
@@ -7,6 +7,7 @@ interface ThoughtsToolbarProps {
   onNew: () => void
   onDelete?: () => void
   onShowTutorial?: () => void
+  onShowHistory?: () => void
   isSaving?: boolean
   isDeleting?: boolean
   title?: string
@@ -17,6 +18,7 @@ export function ThoughtsToolbar({
   onNew,
   onDelete,
   onShowTutorial,
+  onShowHistory,
   isSaving,
   isDeleting,
   title,
@@ -50,6 +52,16 @@ export function ThoughtsToolbar({
       </div>
 
       <div id="thoughts-toolbar-actions" className="flex items-center gap-2">
+        {onShowHistory && (
+          <button
+            id="thoughts-history-btn"
+            onClick={onShowHistory}
+            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors"
+            title="View history"
+          >
+            <History className="w-5 h-5" />
+          </button>
+        )}
         {onShowTutorial && (
           <button
             id="thoughts-help-btn"
