@@ -65,7 +65,8 @@
       "Bash(tccutil status:*)",
       "Bash(readlink:*)",
       "Bash(pnpm run dev:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(openssl rand:*)"
     ]
   }
 }
