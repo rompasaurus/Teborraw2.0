@@ -1,5 +1,5 @@
 import { useCallback, useRef, useEffect } from 'react'
-import Editor, { OnMount, OnChange } from '@monaco-editor/react'
+import Editor, { OnMount, OnChange, BeforeMount } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
 import { useThoughtsEditorStore } from '@/store/thoughtsEditorStore'
 
@@ -8,7 +8,6 @@ interface ThoughtsEditorProps {
 }
 
 const EDITOR_OPTIONS: editor.IStandaloneEditorConstructionOptions = {
-  theme: 'vs-dark',
   minimap: { enabled: true },
   wordWrap: 'on',
   fontSize: 14,
@@ -25,6 +24,17 @@ export function ThoughtsEditor({ onContentChange }: ThoughtsEditorProps) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const { draftContent, setDraftContent, currentTopic, setEditorInstance } =
     useThoughtsEditorStore()
+
+  const handleBeforeMount: BeforeMount = useCallback((monaco) => {
+    monaco.editor.defineTheme('thoughts-theme', {
+      base: 'vs',
+      inherit: true,
+      rules: [],
+      colors: {
+        'editor.background': '#d1d5dbab',
+      },
+    })
+  }, [])
 
   const handleEditorMount: OnMount = useCallback((editor) => {
     editorRef.current = editor
@@ -67,7 +77,9 @@ export function ThoughtsEditor({ onContentChange }: ThoughtsEditorProps) {
         defaultLanguage="plaintext"
         value={draftContent}
         onChange={handleChange}
+        beforeMount={handleBeforeMount}
         onMount={handleEditorMount}
+        theme="thoughts-theme"
         options={EDITOR_OPTIONS}
         loading={
           <div id="thoughts-editor-loading" className="flex items-center justify-center h-full text-slate-400">
