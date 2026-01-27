@@ -1,6 +1,6 @@
 // Teboraw Browser Extension - Background Service Worker
 
-const DEFAULT_API_URL = 'http://localhost:5185/api'
+const DEFAULT_API_URL = 'http://localhost:5000/api'
 const SYNC_INTERVAL_MINUTES = 1
 const HEALTH_CHECK_INTERVAL_MINUTES = 5
 const SEARCH_ENGINES = {
@@ -130,6 +130,7 @@ async function initializeState() {
 }
 
 async function validateAuthentication() {
+  log('validateAuthentication called, current connectionStatus:', connectionStatus)
   try {
     const stored = await chrome.storage.local.get(['apiUrl', 'accessToken'])
     if (!stored.accessToken) {
@@ -140,6 +141,7 @@ async function validateAuthentication() {
     }
 
     const apiUrl = stored.apiUrl || DEFAULT_API_URL
+    log('Validating auth via:', `${apiUrl}/auth/me`)
 
     // Make a lightweight API call to validate the token
     const response = await fetch(`${apiUrl}/auth/me`, {
@@ -148,6 +150,8 @@ async function validateAuthentication() {
         'Authorization': `Bearer ${stored.accessToken}`,
       },
     })
+
+    log('Auth validation response:', response.status, response.ok)
 
     if (response.ok) {
       log('Authentication validated successfully')
@@ -158,11 +162,13 @@ async function validateAuthentication() {
       log('Token expired during validation - attempting refresh')
       await refreshToken()
     } else {
-      logWarn('Unexpected response during validation:', response.status)
+      const errorText = await response.text().catch(() => '')
+      logWarn('Unexpected response during validation:', response.status, errorText)
       connectionStatus = 'unknown'
     }
   } catch (error) {
     logError('Authentication validation failed (network error):', error.message)
+    log('Setting connectionStatus to disconnected due to validation error')
     connectionStatus = 'disconnected'
     // Don't set isAuthenticated to false here - might just be network issue
   }
@@ -418,7 +424,7 @@ async function syncActivities() {
       }),
     })
 
-    log('Sync response status:', response.status)
+    log('Sync response status:', response.status, 'ok:', response.ok)
 
     if (response.ok) {
       // Remove synced activities
@@ -428,8 +434,10 @@ async function syncActivities() {
         lastSyncTimestamp: new Date().toISOString(),
       })
 
+      const prevStatus = connectionStatus
       connectionStatus = 'connected'
       log('Sync successful:', activitiesToSync.length, 'activities synced, remaining:', pendingActivities.length)
+      log('connectionStatus changed:', prevStatus, '->', connectionStatus)
     } else if (response.status === 401) {
       logWarn('Sync failed: 401 Unauthorized - token may be expired')
       const refreshed = await refreshToken()
@@ -440,15 +448,18 @@ async function syncActivities() {
       } else {
         logError('Token refresh failed - user needs to re-login')
         connectionStatus = 'disconnected'
+        log('connectionStatus set to disconnected (token refresh failed)')
       }
     } else {
       const errorText = await response.text().catch(() => 'Unknown error')
       logError('Sync failed with status:', response.status, errorText)
       connectionStatus = 'disconnected'
+      log('connectionStatus set to disconnected (non-ok response)')
     }
   } catch (error) {
-    logError('Sync failed (network error):', error.message)
+    logError('Sync failed (network error):', error.message, error.stack)
     connectionStatus = 'disconnected'
+    log('connectionStatus set to disconnected (network error)')
   }
 }
 
@@ -553,14 +564,25 @@ async function handleMessage(message, sendResponse) {
       }
 
       case 'SYNC_NOW': {
-        log('Manual sync requested')
+        log('Manual sync requested, connectionStatus before:', connectionStatus)
         await syncActivities()
-        sendResponse({ success: true, pendingCount: pendingActivities.length })
+        log('Sync complete, connectionStatus after:', connectionStatus)
+        sendResponse({
+          success: connectionStatus === 'connected',
+          pendingCount: pendingActivities.length,
+          connectionStatus
+        })
         break
       }
 
       case 'PAGE_CONTENT': {
         const result = await handlePageContent(message.data)
+        sendResponse(result)
+        break
+      }
+
+      case 'SCROLL_SESSION': {
+        const result = await handleScrollSession(message.data)
         sendResponse(result)
         break
       }
@@ -657,6 +679,54 @@ async function handlePageContent(contentData) {
 
   log('Stored page content:', contentData.totalLength, 'chars from', contentData.url?.substring(0, 50))
   log('Pending activities now:', pendingActivities.length)
+
+  return { success: true, pendingCount: pendingActivities.length }
+}
+
+async function handleScrollSession(sessionData) {
+  log('Received scroll session:', {
+    domain: sessionData.domain,
+    duration: sessionData.metrics?.sessionDurationMs,
+    isDoomscrolling: sessionData.isDoomscrolling,
+    confidence: sessionData.confidenceScore,
+  })
+
+  if (!isAuthenticated) {
+    logWarn('Scroll session rejected: not authenticated')
+    return { success: false, error: 'Not authenticated' }
+  }
+
+  // Create a ScrollSession activity
+  const activity = {
+    type: 'ScrollSession',
+    source: 'Browser',
+    timestamp: sessionData.startTime,
+    data: sessionData,
+  }
+
+  pendingActivities.push(activity)
+  await chrome.storage.local.set({ pendingActivities })
+
+  log('Stored scroll session:', sessionData.metrics?.sessionDurationMs, 'ms from', sessionData.domain)
+
+  // Show notification if doomscrolling detected
+  if (sessionData.isDoomscrolling) {
+    const minutes = Math.round(sessionData.metrics.sessionDurationMs / 60000)
+    const timeText = minutes >= 1 ? `${minutes} minute${minutes > 1 ? 's' : ''}` : 'a while'
+
+    try {
+      await chrome.notifications.create(`doomscroll-${Date.now()}`, {
+        type: 'basic',
+        iconUrl: 'icons/icon128.png',
+        title: 'Mindful Moment',
+        message: `You've been scrolling on ${sessionData.domain} for ${timeText}. Consider taking a break.`,
+        priority: 1,
+      })
+      log('Doomscroll notification shown for', sessionData.domain)
+    } catch (error) {
+      logWarn('Failed to show notification:', error.message)
+    }
+  }
 
   return { success: true, pendingCount: pendingActivities.length }
 }

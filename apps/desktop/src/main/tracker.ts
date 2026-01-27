@@ -3,6 +3,7 @@ import screenshot from 'screenshot-desktop'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { Notification } from 'electron'
 import { InputMonitor } from './input-monitor'
 import { IdleDetector } from './idle-detector'
 import { AppCategorizer } from './app-categorizer'
@@ -16,6 +17,8 @@ import {
   IdleState,
   PermissionStatus,
   SessionData,
+  ScrollSessionMetrics,
+  DoomscrollIndicators,
 } from './types'
 
 interface TrackerOptions {
@@ -65,6 +68,7 @@ export class ActivityTracker {
 
     // Set up event handlers
     this.setupIdleEvents()
+    this.setupScrollSessionEvents()
   }
 
   private setupIdleEvents(): void {
@@ -108,6 +112,94 @@ export class ActivityTracker {
         this.windowStartTime = new Date()
       }
     )
+  }
+
+  private setupScrollSessionEvents(): void {
+    this.inputMonitor.on('scrollSession', (metrics: ScrollSessionMetrics) => {
+      if (this.paused) return
+
+      // Doomscroll detection thresholds
+      const RAPID_VELOCITY_THRESHOLD = 500 // px/s
+      const SHORT_DWELL_THRESHOLD_MS = 1500
+      const DIRECTION_CHANGE_PER_MIN_THRESHOLD = 10
+      const SESSION_DURATION_THRESHOLD_MS = 300000 // 5 minutes
+
+      // Calculate direction changes per minute
+      const directionChangesPerMin =
+        metrics.sessionDurationMs > 0
+          ? (metrics.directionChanges / metrics.sessionDurationMs) * 60000
+          : 0
+
+      // Count short dwell times
+      const shortDwellCount = metrics.dwellTimes.filter(
+        (d) => d < SHORT_DWELL_THRESHOLD_MS
+      ).length
+      const shortDwellRatio =
+        metrics.dwellTimes.length > 0 ? shortDwellCount / metrics.dwellTimes.length : 0
+
+      // Build doomscroll indicators
+      const doomscrollIndicators: DoomscrollIndicators = {
+        rapidScrolling: metrics.avgVelocity > RAPID_VELOCITY_THRESHOLD,
+        directionThrashing: directionChangesPerMin > DIRECTION_CHANGE_PER_MIN_THRESHOLD,
+        shortContentViews: shortDwellRatio > 0.5,
+        extendedSession: metrics.sessionDurationMs > SESSION_DURATION_THRESHOLD_MS,
+        infiniteScrollDetected: false, // Desktop apps don't have this concept
+      }
+
+      // Calculate confidence score (0-1)
+      let confidenceScore = 0
+      if (doomscrollIndicators.rapidScrolling) confidenceScore += 0.25
+      if (doomscrollIndicators.directionThrashing) confidenceScore += 0.25
+      if (doomscrollIndicators.shortContentViews) confidenceScore += 0.25
+      if (doomscrollIndicators.extendedSession) confidenceScore += 0.25
+
+      const isDoomscrolling = confidenceScore >= 0.6
+
+      // Emit ScrollSession activity
+      this.options.onActivity({
+        type: 'ScrollSession',
+        source: 'Desktop',
+        timestamp: metrics.startTime.toISOString(),
+        data: {
+          sessionId: metrics.sessionId,
+          appName: this.currentWindow?.app || 'Unknown',
+          windowTitle: this.currentWindow?.title || '',
+          startTime: metrics.startTime.toISOString(),
+          endTime: metrics.endTime.toISOString(),
+          metrics: {
+            sessionDurationMs: metrics.sessionDurationMs,
+            totalScrollDistance: metrics.totalScrollDistance,
+            directionChanges: metrics.directionChanges,
+            directionChangesPerMin: Math.round(directionChangesPerMin * 10) / 10,
+            avgVelocity: metrics.avgVelocity,
+            maxVelocity: metrics.maxVelocity,
+            avgDwellTime: metrics.avgDwellTime,
+            rapidScrollSegments: metrics.rapidScrollSegments,
+            eventCount: metrics.eventCount,
+          },
+          doomscrollIndicators,
+          confidenceScore: Math.round(confidenceScore * 100) / 100,
+          isDoomscrolling,
+        },
+      })
+
+      // Show notification if doomscrolling detected
+      if (isDoomscrolling) {
+        const minutes = Math.round(metrics.sessionDurationMs / 60000)
+        const timeText = minutes >= 1 ? `${minutes} minute${minutes > 1 ? 's' : ''}` : 'a while'
+        const appName = this.currentWindow?.app || 'this app'
+
+        try {
+          new Notification({
+            title: 'Mindful Moment',
+            body: `You've been scrolling in ${appName} for ${timeText}. Consider taking a break.`,
+          }).show()
+          console.log('Doomscroll notification shown for', appName)
+        } catch (error) {
+          console.warn('Failed to show notification:', error)
+        }
+      }
+    })
   }
 
   async start(): Promise<void> {

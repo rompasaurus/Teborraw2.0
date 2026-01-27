@@ -7,6 +7,24 @@ const MAX_TEXT_LENGTH = 50000 // Max characters to capture per page
 const MESSAGE_RETRY_ATTEMPTS = 3
 const MESSAGE_RETRY_DELAY_MS = 1000
 
+// Scroll session tracking constants
+const SCROLL_SESSION_TIMEOUT_MS = 3000 // New session after 3s inactivity
+const RAPID_VELOCITY_THRESHOLD = 500 // px/s considered rapid scrolling
+const SHORT_DWELL_THRESHOLD_MS = 1500 // Less than 1.5s = short view
+const DIRECTION_CHANGE_WINDOW_MS = 60000 // Track changes per minute
+const KNOWN_INFINITE_SCROLL_DOMAINS = [
+  'twitter.com',
+  'x.com',
+  'facebook.com',
+  'instagram.com',
+  'tiktok.com',
+  'reddit.com',
+  'pinterest.com',
+  'tumblr.com',
+  'linkedin.com',
+  'youtube.com',
+]
+
 // =============================================================================
 // DEBUG LOGGING
 // =============================================================================
@@ -41,6 +59,13 @@ let pageContent = {
   sections: [],
   capturedAt: new Date().toISOString(),
 }
+
+// Scroll session tracking state
+let scrollSession = null
+let scrollSessionTimeout = null
+let lastScrollY = window.scrollY
+let lastScrollEventTime = Date.now()
+let dwellTimeStart = Date.now()
 
 // Extract visible text from the viewport
 function extractVisibleText() {
@@ -194,9 +219,185 @@ function captureCurrentView() {
   }
 }
 
+// =============================================================================
+// SCROLL SESSION TRACKING (Doomscroll Detection)
+// =============================================================================
+
+// Initialize a new scroll session
+function initScrollSession() {
+  return {
+    sessionId: `scroll-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    startTime: new Date().toISOString(),
+    url: window.location.href,
+    domain: window.location.hostname,
+    totalScrollDistance: 0,
+    netScrollDistance: 0,
+    directionChanges: 0,
+    velocitySamples: [],
+    dwellTimes: [],
+    lastDirection: null,
+    isInfiniteScrollSite: KNOWN_INFINITE_SCROLL_DOMAINS.some((d) =>
+      window.location.hostname.includes(d)
+    ),
+  }
+}
+
+// Track scroll with velocity calculation
+function trackScrollWithVelocity() {
+  const now = Date.now()
+  const currentY = window.scrollY
+  const deltaY = currentY - lastScrollY
+  const deltaTime = now - lastScrollEventTime
+
+  // Skip if no movement or no time passed
+  if (deltaTime === 0 || deltaY === 0) return
+
+  // Calculate velocity (px/s)
+  const velocity = Math.abs(deltaY) / (deltaTime / 1000)
+  const direction = deltaY > 0 ? 'down' : 'up'
+
+  // Initialize session if needed
+  if (!scrollSession) {
+    scrollSession = initScrollSession()
+    log('Started new scroll session:', scrollSession.sessionId)
+  }
+
+  // Track direction changes
+  if (scrollSession.lastDirection && scrollSession.lastDirection !== direction) {
+    scrollSession.directionChanges++
+  }
+  scrollSession.lastDirection = direction
+
+  // Track dwell time (time since last scroll)
+  const dwellTime = now - dwellTimeStart
+  if (dwellTime > 200) {
+    // Only track meaningful pauses
+    scrollSession.dwellTimes.push(dwellTime)
+  }
+  dwellTimeStart = now
+
+  // Accumulate scroll metrics
+  scrollSession.totalScrollDistance += Math.abs(deltaY)
+  scrollSession.netScrollDistance += deltaY
+  scrollSession.velocitySamples.push({
+    timestamp: now,
+    velocity,
+    direction,
+    position: currentY,
+  })
+
+  // Update state
+  lastScrollY = currentY
+  lastScrollEventTime = now
+
+  // Reset session timeout
+  if (scrollSessionTimeout) clearTimeout(scrollSessionTimeout)
+  scrollSessionTimeout = setTimeout(() => {
+    finalizeScrollSession()
+  }, SCROLL_SESSION_TIMEOUT_MS)
+}
+
+// Finalize scroll session and send metrics
+function finalizeScrollSession() {
+  if (!scrollSession || scrollSession.velocitySamples.length < 3) {
+    scrollSession = null
+    return
+  }
+
+  const now = Date.now()
+  const sessionStart = new Date(scrollSession.startTime).getTime()
+  const sessionDuration = now - sessionStart
+
+  // Calculate aggregated metrics
+  const velocities = scrollSession.velocitySamples.map((s) => s.velocity)
+  const avgVelocity =
+    velocities.length > 0 ? velocities.reduce((a, b) => a + b, 0) / velocities.length : 0
+  const maxVelocity = Math.max(...velocities, 0)
+
+  const avgDwellTime =
+    scrollSession.dwellTimes.length > 0
+      ? scrollSession.dwellTimes.reduce((a, b) => a + b, 0) / scrollSession.dwellTimes.length
+      : 0
+
+  // Count rapid scroll segments
+  const rapidScrollSegments = scrollSession.velocitySamples.filter(
+    (s) => s.velocity > RAPID_VELOCITY_THRESHOLD
+  ).length
+
+  // Count short dwell times
+  const shortDwellCount = scrollSession.dwellTimes.filter(
+    (d) => d < SHORT_DWELL_THRESHOLD_MS
+  ).length
+
+  // Direction changes per minute
+  const directionChangesPerMin =
+    sessionDuration > 0 ? (scrollSession.directionChanges / sessionDuration) * 60000 : 0
+
+  // Doomscroll indicators
+  const doomscrollIndicators = {
+    rapidScrolling: avgVelocity > RAPID_VELOCITY_THRESHOLD,
+    directionThrashing: directionChangesPerMin > 10,
+    shortContentViews: shortDwellCount > scrollSession.dwellTimes.length * 0.5,
+    extendedSession: sessionDuration > 300000, // 5 minutes
+    infiniteScrollSite: scrollSession.isInfiniteScrollSite,
+  }
+
+  // Calculate confidence score (0-1)
+  let confidenceScore = 0
+  if (doomscrollIndicators.rapidScrolling) confidenceScore += 0.2
+  if (doomscrollIndicators.directionThrashing) confidenceScore += 0.2
+  if (doomscrollIndicators.shortContentViews) confidenceScore += 0.25
+  if (doomscrollIndicators.extendedSession) confidenceScore += 0.2
+  if (doomscrollIndicators.infiniteScrollSite) confidenceScore += 0.15
+
+  const scrollSessionData = {
+    type: 'SCROLL_SESSION',
+    data: {
+      sessionId: scrollSession.sessionId,
+      url: scrollSession.url,
+      domain: scrollSession.domain,
+      startTime: scrollSession.startTime,
+      endTime: new Date().toISOString(),
+      metrics: {
+        sessionDurationMs: sessionDuration,
+        totalScrollDistance: scrollSession.totalScrollDistance,
+        netScrollDistance: scrollSession.netScrollDistance,
+        directionChanges: scrollSession.directionChanges,
+        directionChangesPerMin: Math.round(directionChangesPerMin * 10) / 10,
+        avgVelocity: Math.round(avgVelocity),
+        maxVelocity: Math.round(maxVelocity),
+        rapidScrollSegments,
+        avgDwellTime: Math.round(avgDwellTime),
+        shortDwellCount,
+        eventCount: scrollSession.velocitySamples.length,
+      },
+      doomscrollIndicators,
+      confidenceScore: Math.round(confidenceScore * 100) / 100,
+      isDoomscrolling: confidenceScore >= 0.6,
+    },
+  }
+
+  log('Scroll session ended:', {
+    duration: sessionDuration,
+    avgVelocity: Math.round(avgVelocity),
+    directionChanges: scrollSession.directionChanges,
+    isDoomscrolling: scrollSessionData.data.isDoomscrolling,
+    confidence: scrollSessionData.data.confidenceScore,
+  })
+
+  // Send to background script
+  sendMessageWithRetry(scrollSessionData)
+
+  // Reset session
+  scrollSession = null
+}
+
 // Handle scroll events
 function handleScroll() {
   lastScrollTime = Date.now()
+
+  // Track scroll velocity for doomscroll detection
+  trackScrollWithVelocity()
 
   // Clear existing timeouts
   if (scrollTimeout) clearTimeout(scrollTimeout)

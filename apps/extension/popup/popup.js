@@ -96,7 +96,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     btn.textContent = 'Syncing...'
 
     const response = await sendMessage({ type: 'SYNC_NOW' })
-    log('Sync response:', response)
+    log('Sync response:', JSON.stringify(response, null, 2))
+
+    if (response && !response.success) {
+      log('Sync failed! connectionStatus:', response.connectionStatus)
+    }
 
     btn.disabled = false
     btn.textContent = 'Sync Now'

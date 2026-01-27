@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events'
 import { clipboard } from 'electron'
-import { InputStats } from './types'
+import { InputStats, ScrollSessionMetrics } from './types'
 
 /**
  * InputMonitor - Keyboard/Mouse activity tracking
@@ -55,6 +55,26 @@ export class InputMonitor extends EventEmitter {
   private clipboardHistory: Array<{ operation: 'copy' | 'paste', text: string, timestamp: Date }> = []
   private readonly maxClipboardHistory: number = 50 // Max clipboard entries to store
   private lastClipboardText: string = ''
+
+  // Scroll session tracking
+  private scrollSession: {
+    sessionId: string
+    startTime: Date
+    events: Array<{
+      timestamp: Date
+      amount: number
+      direction: 'up' | 'down'
+      velocity: number
+    }>
+    totalDistance: number
+    directionChanges: number
+    lastDirection: 'up' | 'down' | null
+    dwellTimes: number[]
+  } | null = null
+  private scrollSessionTimeout: ReturnType<typeof setTimeout> | null = null
+  private lastWheelTime: number = 0
+  private readonly SCROLL_SESSION_TIMEOUT_MS = 3000
+  private readonly RAPID_VELOCITY_THRESHOLD = 500 // px/s
 
   constructor() {
     super()
@@ -213,12 +233,115 @@ export class InputMonitor extends EventEmitter {
 
   private handleWheel(event: any): void {
     this.lastMouseActivity = new Date()
+    const now = Date.now()
 
-    // Track scroll distance (amount is in "clicks", approximate to pixels)
+    // Calculate scroll amount and direction
     const scrollAmount = Math.abs(event.amount || 0) * 100 // Approximate pixels per scroll
+    const direction: 'up' | 'down' = (event.amount || 0) > 0 ? 'down' : 'up'
+
+    // Calculate velocity (px/s)
+    const timeSinceLastScroll = now - this.lastWheelTime
+    const velocity = timeSinceLastScroll > 0 ? scrollAmount / (timeSinceLastScroll / 1000) : 0
+
+    // Track cumulative scroll distance
     this.scrollDistance += scrollAmount
 
+    // Initialize or update scroll session
+    if (!this.scrollSession) {
+      this.scrollSession = {
+        sessionId: `scroll-${now}-${Math.random().toString(36).slice(2, 8)}`,
+        startTime: new Date(),
+        events: [],
+        totalDistance: 0,
+        directionChanges: 0,
+        lastDirection: null,
+        dwellTimes: [],
+      }
+      console.log('Started new scroll session:', this.scrollSession.sessionId)
+    }
+
+    // Track dwell time (time since last scroll)
+    if (this.lastWheelTime > 0 && timeSinceLastScroll > 200) {
+      this.scrollSession.dwellTimes.push(timeSinceLastScroll)
+    }
+
+    // Track direction changes
+    if (this.scrollSession.lastDirection && this.scrollSession.lastDirection !== direction) {
+      this.scrollSession.directionChanges++
+    }
+    this.scrollSession.lastDirection = direction
+
+    // Record event
+    this.scrollSession.events.push({
+      timestamp: new Date(),
+      amount: scrollAmount,
+      direction,
+      velocity,
+    })
+
+    this.scrollSession.totalDistance += scrollAmount
+    this.lastWheelTime = now
+
+    // Reset session timeout
+    if (this.scrollSessionTimeout) {
+      clearTimeout(this.scrollSessionTimeout)
+    }
+    this.scrollSessionTimeout = setTimeout(() => {
+      this.finalizeScrollSession()
+    }, this.SCROLL_SESSION_TIMEOUT_MS)
+
     this.emit('wheel', event)
+  }
+
+  private finalizeScrollSession(): void {
+    if (!this.scrollSession || this.scrollSession.events.length < 3) {
+      this.scrollSession = null
+      return
+    }
+
+    const sessionDuration = Date.now() - this.scrollSession.startTime.getTime()
+    const velocities = this.scrollSession.events.map((e) => e.velocity)
+    const avgVelocity = velocities.reduce((a, b) => a + b, 0) / velocities.length
+    const maxVelocity = Math.max(...velocities)
+
+    const avgDwellTime =
+      this.scrollSession.dwellTimes.length > 0
+        ? this.scrollSession.dwellTimes.reduce((a, b) => a + b, 0) /
+          this.scrollSession.dwellTimes.length
+        : 0
+
+    // Count rapid scroll segments
+    const rapidScrollSegments = this.scrollSession.events.filter(
+      (e) => e.velocity > this.RAPID_VELOCITY_THRESHOLD
+    ).length
+
+    const metrics: ScrollSessionMetrics = {
+      sessionId: this.scrollSession.sessionId,
+      startTime: this.scrollSession.startTime,
+      endTime: new Date(),
+      totalScrollDistance: this.scrollSession.totalDistance,
+      netScrollDistance: this.scrollSession.totalDistance, // Desktop doesn't track net direction
+      directionChanges: this.scrollSession.directionChanges,
+      avgVelocity: Math.round(avgVelocity),
+      maxVelocity: Math.round(maxVelocity),
+      rapidScrollSegments,
+      dwellTimes: this.scrollSession.dwellTimes,
+      avgDwellTime: Math.round(avgDwellTime),
+      sessionDurationMs: sessionDuration,
+      eventCount: this.scrollSession.events.length,
+    }
+
+    console.log('Scroll session ended:', {
+      duration: sessionDuration,
+      avgVelocity: Math.round(avgVelocity),
+      directionChanges: this.scrollSession.directionChanges,
+      eventCount: this.scrollSession.events.length,
+    })
+
+    // Emit scroll session data
+    this.emit('scrollSession', metrics)
+
+    this.scrollSession = null
   }
 
   /**

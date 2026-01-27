@@ -21,7 +21,8 @@ public enum ActivityType
     Thought,
     IdleStart,
     IdleEnd,
-    InputActivity
+    InputActivity,
+    ScrollSession
 }
 
 public class Activity : BaseEntity

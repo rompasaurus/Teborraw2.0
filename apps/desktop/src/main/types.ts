@@ -147,6 +147,50 @@ export interface PermissionStatus {
   screenCapture: boolean
 }
 
+// Scroll event with velocity tracking
+export interface ScrollEvent {
+  timestamp: Date
+  scrollY: number
+  deltaY: number
+  velocity: number // pixels per second
+  direction: 'up' | 'down'
+}
+
+// Scroll session aggregated metrics
+export interface ScrollSessionMetrics {
+  sessionId: string
+  startTime: Date
+  endTime: Date
+  totalScrollDistance: number
+  netScrollDistance: number
+  directionChanges: number
+  avgVelocity: number
+  maxVelocity: number
+  rapidScrollSegments: number
+  dwellTimes: number[]
+  avgDwellTime: number
+  sessionDurationMs: number
+  eventCount: number
+}
+
+// Doomscrolling detection indicators
+export interface DoomscrollIndicators {
+  rapidScrolling: boolean
+  directionThrashing: boolean
+  shortContentViews: boolean
+  extendedSession: boolean
+  infiniteScrollDetected: boolean
+}
+
+// Configuration for doomscroll detection thresholds
+export interface DoomscrollConfig {
+  velocityThreshold: number // px/s considered "rapid" (default: 500)
+  dwellTimeThreshold: number // ms considered "short" (default: 1500)
+  directionChangeThreshold: number // changes per minute threshold (default: 10)
+  sessionDurationThreshold: number // ms before flagging (default: 300000 = 5min)
+  confidenceThreshold: number // 0-1 threshold to flag (default: 0.6)
+}
+
 // Activity types for sync
 export type ActivityType =
   | 'WindowFocus'
@@ -154,6 +198,7 @@ export type ActivityType =
   | 'IdleStart'
   | 'IdleEnd'
   | 'InputActivity'
+  | 'ScrollSession'
 
 export type ActivitySource = 'Desktop' | 'Browser' | 'Mobile'
 
