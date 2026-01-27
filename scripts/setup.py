@@ -871,10 +871,10 @@ def print_service_status(containers: list, project_root: str):
         health = health_info.get('health', 'N/A')
 
         # Check endpoint if available
-        response = '-'
+        response = f"{'-':<12}"
         if name in endpoints and state == 'running':
             ok, status, resp_time = check_service_uptime(endpoints[name])
-            response = f"{Colors.GREEN}{resp_time}{Colors.NC}" if ok else f"{Colors.RED}down{Colors.NC}"
+            response = f"{Colors.GREEN}{resp_time:<12}{Colors.NC}" if ok else f"{Colors.RED}{'down':<12}{Colors.NC}"
 
         # Color code status
         if state == 'running':
@@ -892,7 +892,7 @@ def print_service_status(containers: list, project_root: str):
         else:
             health_str = f"{Colors.YELLOW}{health:<12}{Colors.NC}"
 
-        print(f"  {name:<12} {status_str} {health_str} {response:<12} {container_name:<20}")
+        print(f"  {name:<12} {status_str} {health_str} {response} {container_name:<20}")
 
     print()
 
@@ -1097,10 +1097,10 @@ def get_service_table_lines(containers: list) -> list:
         health_info = get_container_health(container_name)
         health = health_info.get('health', 'N/A')
 
-        response = '-'
+        response = f"{'-':<12}"
         if name in endpoints and state == 'running':
             ok, _, resp_time = check_service_uptime(endpoints[name])
-            response = f"{Colors.GREEN}{resp_time}{Colors.NC}" if ok else f"{Colors.RED}down{Colors.NC}"
+            response = f"{Colors.GREEN}{resp_time:<12}{Colors.NC}" if ok else f"{Colors.RED}{'down':<12}{Colors.NC}"
 
         if state == 'running':
             status_str = f"{Colors.GREEN}{state:<12}{Colors.NC}"
@@ -1116,7 +1116,7 @@ def get_service_table_lines(containers: list) -> list:
         else:
             health_str = f"{Colors.YELLOW}{health:<12}{Colors.NC}"
 
-        lines.append(f"  {name:<12} {status_str} {health_str} {response:<12} {container_name:<20}")
+        lines.append(f"  {name:<12} {status_str} {health_str} {response} {container_name:<20}")
 
     return lines
 
