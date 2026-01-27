@@ -907,6 +907,7 @@ def print_monitor_menu():
     print(f"    {Colors.GREEN}[5]{Colors.NC} Stop all services")
     print(f"    {Colors.GREEN}[6]{Colors.NC} Start all services")
     print(f"    {Colors.GREEN}[7]{Colors.NC} Install Chrome extension")
+    print(f"    {Colors.GREEN}[8]{Colors.NC} Run database migration")
     print(f"    {Colors.GREEN}[q]{Colors.NC} Quit monitor")
     print()
 
@@ -1020,6 +1021,116 @@ def stop_all_services(project_root: str):
     else:
         print_error("Failed to stop services")
 
+    time.sleep(1)
+
+
+def check_and_install_ef_tools() -> bool:
+    """Check if dotnet-ef tools are installed and install if missing"""
+    print_step("Checking for EF Core tools...")
+
+    # Check if dotnet-ef is available
+    result = run_command(['dotnet', 'ef', '--version'], capture=True)
+
+    if result and result.returncode == 0:
+        version = result.stdout.strip() if result.stdout else "unknown"
+        print_success(f"EF Core tools {version}")
+        return True
+
+    # Not installed, try to install
+    print_warning("EF Core tools not found. Installing...")
+    result = run_command(['dotnet', 'tool', 'install', '--global', 'dotnet-ef'])
+
+    if result and result.returncode == 0:
+        print_success("EF Core tools installed successfully")
+        return True
+
+    # Maybe already installed but outdated/broken, try update
+    print_warning("Install failed, trying to update existing installation...")
+    result = run_command(['dotnet', 'tool', 'update', '--global', 'dotnet-ef'])
+
+    if result and result.returncode == 0:
+        print_success("EF Core tools updated successfully")
+        return True
+
+    print_error("Failed to install EF Core tools")
+    print_error("Please install manually: dotnet tool install --global dotnet-ef")
+    return False
+
+
+def run_database_migration(project_root: str):
+    """Run Entity Framework database migration"""
+    api_dir = os.path.join(project_root, 'apps', 'api')
+
+    # Check and install EF tools if needed
+    if not check_and_install_ef_tools():
+        input(f"\n  Press {Colors.GREEN}Enter{Colors.NC} to continue...")
+        return
+
+    print(f"\n  {Colors.CYAN}Database Migration Options:{Colors.NC}")
+    print(f"    {Colors.GREEN}[1]{Colors.NC} Add new migration")
+    print(f"    {Colors.GREEN}[2]{Colors.NC} Apply migrations (update database)")
+    print(f"    {Colors.GREEN}[3]{Colors.NC} Remove last migration")
+    print(f"    {Colors.GREEN}[c]{Colors.NC} Cancel")
+
+    choice = input(f"\n  {Colors.YELLOW}>{Colors.NC} ").strip().lower()
+
+    if choice == 'c':
+        return
+    elif choice == '1':
+        # Add new migration
+        migration_name = input(f"  {Colors.YELLOW}Enter migration name:{Colors.NC} ").strip()
+        if not migration_name:
+            print_error("Migration name cannot be empty")
+            return
+
+        print_step(f"Adding migration '{migration_name}'...")
+        result = run_command(
+            ['dotnet', 'ef', 'migrations', 'add', migration_name,
+             '--project', 'Teboraw.Infrastructure',
+             '--startup-project', 'Teboraw.Api'],
+            cwd=api_dir
+        )
+
+        if result and result.returncode == 0:
+            print_success(f"Migration '{migration_name}' added successfully")
+        else:
+            print_error("Failed to add migration")
+
+    elif choice == '2':
+        # Apply migrations
+        print_step("Applying database migrations...")
+        result = run_command(
+            ['dotnet', 'ef', 'database', 'update',
+             '--project', 'Teboraw.Infrastructure',
+             '--startup-project', 'Teboraw.Api'],
+            cwd=api_dir
+        )
+
+        if result and result.returncode == 0:
+            print_success("Database migrations applied successfully")
+        else:
+            print_error("Failed to apply migrations")
+
+    elif choice == '3':
+        # Remove last migration
+        confirm = input(f"  {Colors.YELLOW}Remove the last migration? [y/N]:{Colors.NC} ").strip().lower()
+        if confirm == 'y':
+            print_step("Removing last migration...")
+            result = run_command(
+                ['dotnet', 'ef', 'migrations', 'remove',
+                 '--project', 'Teboraw.Infrastructure',
+                 '--startup-project', 'Teboraw.Api'],
+                cwd=api_dir
+            )
+
+            if result and result.returncode == 0:
+                print_success("Last migration removed successfully")
+            else:
+                print_error("Failed to remove migration")
+    else:
+        print_error("Invalid selection")
+
+    input(f"\n  Press {Colors.GREEN}Enter{Colors.NC} to continue...")
     time.sleep(1)
 
 
@@ -1214,7 +1325,7 @@ def monitor_services(project_root: str):
             print()
             print_success("Monitor closed")
             break
-        elif choice in ['1', '2', '3', '4', '5', '6', '7']:
+        elif choice in ['1', '2', '3', '4', '5', '6', '7', '8']:
             print()
             containers = get_container_stats(project_root)
 
@@ -1240,6 +1351,8 @@ def monitor_services(project_root: str):
                 start_all_services(project_root)
             elif choice == '7':
                 install_chrome_extension(project_root)
+            elif choice == '8':
+                run_database_migration(project_root)
 
         # Refresh screen
         containers = get_container_stats(project_root)
