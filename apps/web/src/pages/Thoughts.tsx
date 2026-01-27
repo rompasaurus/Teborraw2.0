@@ -10,6 +10,7 @@ import {
   ThoughtsToolbar,
   ThoughtsList,
   TopicDetails,
+  RecentTopics,
   ThoughtsTutorial,
   useShouldShowTutorial,
 } from '@/components/thoughts'
@@ -18,10 +19,16 @@ import { useThoughtsEditorStore } from '@/store/thoughtsEditorStore'
 import { useTopicParser } from '@/hooks/useTopicParser'
 import type { Thought } from '@/types/journal'
 
+const TOPICS_SIDEBAR_COLLAPSED_KEY = 'teboraw-topics-sidebar-collapsed'
+
 export function Thoughts() {
   const queryClient = useQueryClient()
   const shouldShowTutorial = useShouldShowTutorial()
   const [showTutorial, setShowTutorial] = useState(false)
+  const [isTopicsSidebarCollapsed, setIsTopicsSidebarCollapsed] = useState(() => {
+    const saved = localStorage.getItem(TOPICS_SIDEBAR_COLLAPSED_KEY)
+    return saved === 'true'
+  })
   const {
     currentThoughtId,
     draftContent,
@@ -31,6 +38,7 @@ export function Thoughts() {
     setTopicTree,
     createNewThought,
     markSaved,
+    insertTextAtCursor,
   } = useThoughtsEditorStore()
 
   // Parse topics from content
@@ -168,6 +176,21 @@ export function Thoughts() {
     setShowTutorial(true)
   }, [])
 
+  const handleToggleTopicsSidebar = useCallback(() => {
+    setIsTopicsSidebarCollapsed((prev) => {
+      const newValue = !prev
+      localStorage.setItem(TOPICS_SIDEBAR_COLLAPSED_KEY, String(newValue))
+      return newValue
+    })
+  }, [])
+
+  const handleTopicClick = useCallback(
+    (topicName: string) => {
+      insertTextAtCursor(topicName)
+    },
+    [insertTextAtCursor]
+  )
+
   return (
     <Layout>
       {/* Tutorial Overlay */}
@@ -197,7 +220,7 @@ export function Thoughts() {
             </div>
           </Allotment.Pane>
 
-          {/* Right Panel: Editor + Details (80%) */}
+          {/* Center Panel: Editor + Details (65%) */}
           <Allotment.Pane>
             <Allotment vertical>
               {/* Editor (75%) */}
@@ -224,6 +247,20 @@ export function Thoughts() {
                 </div>
               </Allotment.Pane>
             </Allotment>
+          </Allotment.Pane>
+
+          {/* Right Panel: Recent Topics (15% or collapsed) */}
+          <Allotment.Pane
+            preferredSize={isTopicsSidebarCollapsed ? 44 : '15%'}
+            minSize={44}
+            maxSize={isTopicsSidebarCollapsed ? 44 : 300}
+          >
+            <RecentTopics
+              thoughts={thoughts}
+              isCollapsed={isTopicsSidebarCollapsed}
+              onToggleCollapse={handleToggleTopicsSidebar}
+              onTopicClick={handleTopicClick}
+            />
           </Allotment.Pane>
         </Allotment>
       </div>

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { editor } from 'monaco-editor'
 import type { Thought, Topic, TopicTreeElement } from '@/types/journal'
 
 interface ThoughtsEditorState {
@@ -19,6 +20,9 @@ interface ThoughtsEditorState {
   // UI state
   selectedTopicPath: string | null
 
+  // Editor reference (not persisted)
+  editorInstance: editor.IStandaloneCodeEditor | null
+
   // Actions
   setCurrentThought: (thought: Thought | null) => void
   setDraftContent: (content: string) => void
@@ -28,13 +32,15 @@ interface ThoughtsEditorState {
   markDirty: () => void
   createNewThought: () => void
   reset: () => void
+  setEditorInstance: (editor: editor.IStandaloneCodeEditor | null) => void
+  insertTextAtCursor: (text: string) => void
 }
 
 const DEFAULT_CONTENT = 'Untitled Thought:\n    '
 
 export const useThoughtsEditorStore = create<ThoughtsEditorState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       // Initial state
       currentThought: null,
       currentThoughtId: null,
@@ -44,6 +50,7 @@ export const useThoughtsEditorStore = create<ThoughtsEditorState>()(
       isDirty: false,
       lastSavedAt: null,
       selectedTopicPath: null,
+      editorInstance: null,
 
       // Actions
       setCurrentThought: (thought) =>
@@ -105,6 +112,42 @@ export const useThoughtsEditorStore = create<ThoughtsEditorState>()(
           lastSavedAt: null,
           selectedTopicPath: null,
         }),
+
+      setEditorInstance: (editor) =>
+        set({
+          editorInstance: editor,
+        }),
+
+      insertTextAtCursor: (text) => {
+        const { editorInstance } = get()
+        if (!editorInstance) return
+
+        const position = editorInstance.getPosition()
+        if (!position) return
+
+        // Insert the text as a topic line (with colon)
+        const topicText = `${text}:\n    `
+
+        editorInstance.executeEdits('insert-topic', [
+          {
+            range: {
+              startLineNumber: position.lineNumber,
+              startColumn: position.column,
+              endLineNumber: position.lineNumber,
+              endColumn: position.column,
+            },
+            text: topicText,
+          },
+        ])
+
+        // Move cursor to after the inserted text
+        const newPosition = {
+          lineNumber: position.lineNumber + 1,
+          column: 5, // After the 4-space indent
+        }
+        editorInstance.setPosition(newPosition)
+        editorInstance.focus()
+      },
     }),
     {
       name: 'teboraw-thoughts-editor',

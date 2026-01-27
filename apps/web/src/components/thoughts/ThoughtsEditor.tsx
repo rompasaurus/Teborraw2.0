@@ -23,13 +23,21 @@ const EDITOR_OPTIONS: editor.IStandaloneEditorConstructionOptions = {
 
 export function ThoughtsEditor({ onContentChange }: ThoughtsEditorProps) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
-  const { draftContent, setDraftContent, currentTopic } =
+  const { draftContent, setDraftContent, currentTopic, setEditorInstance } =
     useThoughtsEditorStore()
 
   const handleEditorMount: OnMount = useCallback((editor) => {
     editorRef.current = editor
+    setEditorInstance(editor)
     editor.focus()
-  }, [])
+  }, [setEditorInstance])
+
+  // Cleanup editor instance on unmount
+  useEffect(() => {
+    return () => {
+      setEditorInstance(null)
+    }
+  }, [setEditorInstance])
 
   const handleChange: OnChange = useCallback(
     (value) => {
