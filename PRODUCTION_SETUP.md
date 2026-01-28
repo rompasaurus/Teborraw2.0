@@ -100,13 +100,31 @@ Type `y` when prompted.
 
 ## Step 5: Deploy Application
 
-### From your local machine:
+### Option A: Deploy Script (Recommended)
+
+Images are built locally and pushed to the server. No SDK needed on the droplet.
 
 ```bash
-# Navigate to project root
-cd /path/to/Teborraw2.0
+# First time: configure your server
+python scripts/deploy.py config server_host YOUR_DROPLET_IP
 
-# Copy project files to server (excludes node_modules, .git, etc.)
+# Copy your .env to the server
+scp .env.production.local root@YOUR_DROPLET_IP:/opt/teboraw/.env
+ssh root@YOUR_DROPLET_IP "chmod 600 /opt/teboraw/.env"
+
+# Full deploy (build + push + restart)
+python scripts/deploy.py deploy
+
+# Or via pnpm
+pnpm deploy
+```
+
+See [Deploy CLI Reference](#deploy-cli-reference) for all commands.
+
+### Option B: Manual Deploy
+
+```bash
+# Copy project files to server
 rsync -avz --progress \
   --exclude 'node_modules' \
   --exclude '.git' \
@@ -117,26 +135,9 @@ rsync -avz --progress \
 
 # Copy production environment file
 scp .env.production.local root@YOUR_DROPLET_IP:/opt/teboraw/.env
-```
 
-### On the server:
-
-```bash
-ssh root@YOUR_DROPLET_IP
-
-cd /opt/teboraw
-
-# Secure the env file
-chmod 600 .env
-
-# Build and start all services
-docker compose up -d --build
-
-# Verify services are running
-docker compose ps
-
-# Check logs if needed
-docker compose logs -f
+# On the server: build and start
+ssh root@YOUR_DROPLET_IP "cd /opt/teboraw && chmod 600 .env && docker compose up -d --build"
 ```
 
 ---
@@ -211,7 +212,7 @@ apt update && apt install caddy -y
 # Create Caddy config
 cat > /etc/caddy/Caddyfile << 'EOF'
 yourdomain.com {
-    reverse_proxy localhost:80
+    reverse_proxy localhost:5173
 }
 
 www.yourdomain.com {
@@ -285,6 +286,115 @@ docker compose exec postgres psql -U teboraw teboraw
 
 ---
 
+## Caddy (Reverse Proxy & SSL)
+
+### View Caddy logs
+
+```bash
+# Live log stream
+journalctl -u caddy -f
+
+# Last 100 lines
+journalctl -u caddy -n 100
+
+# Logs from today only
+journalctl -u caddy --since today
+
+# Filter for errors only
+journalctl -u caddy -p err
+```
+
+### Caddy service management
+
+```bash
+# Check status
+systemctl status caddy
+
+# Restart
+systemctl restart caddy
+
+# Stop
+systemctl stop caddy
+
+# Start
+systemctl start caddy
+
+# Reload config without downtime
+systemctl reload caddy
+```
+
+### Validate Caddyfile
+
+```bash
+# Check for syntax errors before reloading
+caddy validate --config /etc/caddy/Caddyfile
+
+# Format the Caddyfile (auto-fix indentation)
+caddy fmt --overwrite /etc/caddy/Caddyfile
+```
+
+### View/edit the Caddyfile
+
+```bash
+# View current config
+cat /etc/caddy/Caddyfile
+
+# Edit
+nano /etc/caddy/Caddyfile
+
+# After editing, always reload
+systemctl reload caddy
+```
+
+### SSL certificate status
+
+```bash
+# List all managed certificates
+caddy list-modules 2>&1 | grep tls
+
+# Certificates are stored at:
+ls /var/lib/caddy/.local/share/caddy/certificates/
+```
+
+### Common Caddy issues
+
+**ERR_TOO_MANY_REDIRECTS:**
+The `reverse_proxy` target port must match the Docker host port, not the container's internal port. Check `docker compose ps` for the host port mapping and update the Caddyfile accordingly.
+
+```bash
+# Verify which port the web container is exposed on
+docker compose ps web
+
+# The Caddyfile should proxy to that host port (e.g., 5173)
+```
+
+**SSL certificate not provisioning:**
+Caddy auto-provisions Let's Encrypt certificates, but needs port 80 and 443 open.
+
+```bash
+# Verify firewall allows HTTP/HTTPS
+ufw status
+
+# Check Caddy can reach Let's Encrypt
+journalctl -u caddy | grep -i "certificate\|tls\|acme"
+```
+
+**502 Bad Gateway:**
+The upstream service (Docker) isn't responding.
+
+```bash
+# Check if Docker services are running
+docker compose ps
+
+# Check if the web container is healthy
+docker compose logs --tail=20 web
+
+# Test the upstream directly
+curl -I http://localhost:5173
+```
+
+---
+
 ## Troubleshooting
 
 ### Services not starting
@@ -328,6 +438,48 @@ docker compose logs api | grep -i connection
 
 ---
 
+## Deploy CLI Reference
+
+The deploy script builds images locally and pushes them to your server, keeping the droplet lightweight.
+
+### First-time setup
+
+```bash
+# Configure your server IP
+python scripts/deploy.py config server_host YOUR_DROPLET_IP
+```
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `python scripts/deploy.py deploy` | Full pipeline: build + push + restart |
+| `python scripts/deploy.py build` | Build Docker images locally |
+| `python scripts/deploy.py push` | Push built images to server |
+| `python scripts/deploy.py deploy api` | Deploy only the API |
+| `python scripts/deploy.py deploy web` | Deploy only the web frontend |
+| `python scripts/deploy.py migrate` | Run EF Core migrations on server |
+| `python scripts/deploy.py logs` | Stream all logs from server |
+| `python scripts/deploy.py logs api` | Stream API logs |
+| `python scripts/deploy.py status` | Check services, disk, memory usage |
+| `python scripts/deploy.py ssh` | SSH into the server |
+| `python scripts/deploy.py backup` | Download a database backup |
+| `python scripts/deploy.py config` | Show deploy configuration |
+
+### pnpm shortcuts
+
+| Command | Description |
+|---------|-------------|
+| `pnpm deploy` | Full deploy |
+| `pnpm deploy:build` | Build images |
+| `pnpm deploy:push` | Push images |
+| `pnpm deploy:status` | Check server status |
+| `pnpm deploy:logs` | Stream server logs |
+| `pnpm deploy:migrate` | Run migrations |
+| `pnpm deploy:backup` | Download DB backup |
+
+---
+
 ## Security Checklist
 
 - [ ] SSH key authentication enabled (password auth disabled)
@@ -347,3 +499,4 @@ docker compose logs api | grep -i connection
 | Domain (optional) | ~$1 |
 | SSL Certificate | Free (Caddy/Let's Encrypt) |
 | **Total** | **~$12-13/month** |
+

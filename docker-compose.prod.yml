@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: teboraw-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-teboraw}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-teboraw_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-teboraw}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U teboraw -d teboraw"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - teboraw-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: teboraw-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - teboraw-network
+
+  # .NET API Backend (pre-built image)
+  api:
+    image: teboraw-api:latest
+    container_name: teboraw-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-teboraw};Username=${POSTGRES_USER:-teboraw};Password=${POSTGRES_PASSWORD:-teboraw_dev}
+      - Jwt__SecretKey=${JWT_SECRET_KEY:-zxdBWcBW-geIoahwTvIyQaWFnovvdx34zz-0eFN9pIOUTZ-jWejV31Wauo-eUb7m}
+      - Jwt__Issuer=Teboraw
+      - Jwt__Audience=Teboraw
+      - Redis__Host=redis
+      - Redis__Port=6379
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    networks:
+      - teboraw-network
+
+  # React Web Dashboard (pre-built image)
+  web:
+    image: teboraw-web:latest
+    container_name: teboraw-web
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
+    networks:
+      - teboraw-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  teboraw-network:
+    driver: bridge

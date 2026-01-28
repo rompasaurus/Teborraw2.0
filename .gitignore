@@ -56,6 +56,11 @@ ios/Pods/
 
 # Docker
 docker-data/
+*.tar.gz
+
+# Deploy
+.deploy.json
+backups/
 
 # Uploads and user data
 uploads/

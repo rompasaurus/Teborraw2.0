@@ -26,6 +26,13 @@
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:stop": "python scripts/run.py stop",
+    "deploy": "python scripts/deploy.py deploy",
+    "deploy:build": "python scripts/deploy.py build",
+    "deploy:push": "python scripts/deploy.py push",
+    "deploy:status": "python scripts/deploy.py status",
+    "deploy:logs": "python scripts/deploy.py logs",
+    "deploy:migrate": "python scripts/deploy.py migrate",
+    "deploy:backup": "python scripts/deploy.py backup",
     "clean": "pnpm -r clean"
   },
   "engines": {

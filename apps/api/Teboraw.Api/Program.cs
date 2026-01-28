@@ -142,10 +142,9 @@ app.MapControllers();
 // Map health check endpoints
 app.MapHealthChecks("/health");
 
-// Auto-migrate database in development
-if (app.Environment.IsDevelopment())
+// Auto-migrate database
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<TeborawDbContext>();
     dbContext.Database.Migrate();
 }
