@@ -31,7 +31,9 @@ public class TeborawDbContext : DbContext
             entity.HasIndex(e => e.Email).IsUnique();
             entity.Property(e => e.Email).HasMaxLength(255);
             entity.Property(e => e.DisplayName).HasMaxLength(100);
-            entity.Property(e => e.PasswordHash).HasMaxLength(255);
+            entity.Property(e => e.PasswordHash).HasMaxLength(255).IsRequired(false);
+            entity.Property(e => e.GoogleId).HasMaxLength(255);
+            entity.HasIndex(e => e.GoogleId).IsUnique().HasFilter("\"GoogleId\" IS NOT NULL");
         });
 
         // RefreshToken configuration

@@ -42,6 +42,19 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("google")]
+    public async Task<ActionResult<AuthResponse>> GoogleLogin([FromBody] GoogleLoginRequest request)
+    {
+        var result = await _authService.GoogleLoginAsync(request.Credential);
+
+        if (result == null)
+        {
+            return Unauthorized(new { message = "Invalid Google credential" });
+        }
+
+        return Ok(result);
+    }
+
     [HttpPost("refresh")]
     public async Task<ActionResult<AuthResponse>> Refresh([FromBody] RefreshTokenRequest request)
     {

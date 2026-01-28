@@ -15,6 +15,7 @@ try {
   setAuth: (auth: { apiUrl: string; accessToken: string; refreshToken: string }) =>
     ipcRenderer.invoke('set-auth', auth),
   logout: () => ipcRenderer.invoke('logout'),
+  googleAuth: () => ipcRenderer.invoke('google-auth'),
 
   // ============================================
   // Status & Control
@@ -85,6 +86,12 @@ declare global {
         refreshToken: string
       }) => Promise<void>
       logout: () => Promise<void>
+      googleAuth: () => Promise<{
+        accessToken: string
+        refreshToken: string
+        expiresAt: string
+        user: { id: string; email: string; displayName: string; avatarUrl?: string }
+      }>
 
       // Status & Control
       getStatus: () => Promise<{

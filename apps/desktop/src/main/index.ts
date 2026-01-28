@@ -1,10 +1,13 @@
 import { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage } from 'electron'
 import path from 'path'
 import fs from 'fs'
+import axios from 'axios'
 import { ActivityTracker } from './tracker'
 import { SyncService } from './sync'
 import Store from 'electron-store'
 import { AppCategory } from './types'
+
+const GOOGLE_CLIENT_ID = 'Y59537193856-oc776rrlfild0aepqekjhf0j9b2hloqf.apps.googleusercontent.com'
 
 // Track if app is quitting (used to prevent window hide on close when actually quitting)
 let isQuitting = false
@@ -252,6 +255,72 @@ function setupIpcHandlers() {
     store.delete('refreshToken')
     activityTracker?.stop()
     syncService?.stop()
+  })
+
+  ipcMain.handle('google-auth', async () => {
+    const apiUrl = store.get('apiUrl', 'http://localhost:5000/api') as string
+    const redirectUri = 'http://localhost/oauth2callback'
+
+    const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth')
+    authUrl.searchParams.set('client_id', GOOGLE_CLIENT_ID)
+    authUrl.searchParams.set('redirect_uri', redirectUri)
+    authUrl.searchParams.set('response_type', 'token id_token')
+    authUrl.searchParams.set('scope', 'openid email profile')
+    authUrl.searchParams.set('nonce', Math.random().toString(36).substring(2))
+
+    return new Promise((resolve, reject) => {
+      const authWindow = new BrowserWindow({
+        width: 500,
+        height: 600,
+        show: true,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+        },
+      })
+
+      authWindow.webContents.on('will-redirect', async (_event, url) => {
+        if (url.startsWith(redirectUri)) {
+          const hash = new URL(url.replace('#', '?')).searchParams
+          const idToken = hash.get('id_token')
+
+          if (idToken) {
+            try {
+              const response = await axios.post(`${apiUrl}/auth/google`, {
+                credential: idToken,
+              })
+
+              const { accessToken, refreshToken } = response.data
+              store.set('accessToken', accessToken)
+              store.set('refreshToken', refreshToken)
+
+              if (syncService) {
+                syncService.updateAuth(apiUrl, accessToken)
+              }
+              if (accessToken && activityTracker && !activityTracker.isRunning()) {
+                activityTracker.start()
+                syncService?.start()
+              }
+
+              authWindow.close()
+              resolve(response.data)
+            } catch (error) {
+              authWindow.close()
+              reject(error)
+            }
+          } else {
+            authWindow.close()
+            reject(new Error('No ID token received'))
+          }
+        }
+      })
+
+      authWindow.on('closed', () => {
+        reject(new Error('Auth window closed'))
+      })
+
+      authWindow.loadURL(authUrl.toString())
+    })
   })
 
   // Status & Control

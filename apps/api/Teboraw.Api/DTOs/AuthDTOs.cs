@@ -17,6 +17,10 @@ public record RefreshTokenRequest(
     [Required] string RefreshToken
 );
 
+public record GoogleLoginRequest(
+    [Required] string Credential
+);
+
 public record AuthResponse(
     string AccessToken,
     string RefreshToken,

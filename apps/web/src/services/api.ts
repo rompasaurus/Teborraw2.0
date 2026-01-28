@@ -70,6 +70,9 @@ export const authApi = {
     api.post('/auth/logout', { refreshToken }),
 
   me: () => api.get('/auth/me'),
+
+  googleLogin: (credential: string) =>
+    api.post('/auth/google', { credential }),
 }
 
 // Activities API

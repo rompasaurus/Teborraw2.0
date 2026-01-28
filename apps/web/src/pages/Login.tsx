@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
+import { GoogleLogin, type CredentialResponse } from '@react-oauth/google'
 import { authApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 
@@ -22,6 +23,25 @@ export function Login() {
       setError('Invalid email or password')
     },
   })
+
+  const googleLoginMutation = useMutation({
+    mutationFn: (credential: string) => authApi.googleLogin(credential),
+    onSuccess: (response) => {
+      const { accessToken, refreshToken, user } = response.data
+      setAuth(user, accessToken, refreshToken)
+      navigate('/dashboard')
+    },
+    onError: () => {
+      setError('Google sign-in failed')
+    },
+  })
+
+  const handleGoogleSuccess = (response: CredentialResponse) => {
+    setError('')
+    if (response.credential) {
+      googleLoginMutation.mutate(response.credential)
+    }
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -94,6 +114,25 @@ export function Login() {
               {loginMutation.isPending ? 'Signing in...' : 'Sign in'}
             </button>
           </form>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-700" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="bg-slate-800 px-2 text-slate-400">or</span>
+            </div>
+          </div>
+
+          <div className="flex justify-center">
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => setError('Google sign-in failed')}
+              theme="filled_black"
+              size="large"
+              width="100%"
+            />
+          </div>
 
           <p id="login-register-prompt" className="mt-6 text-center text-sm text-slate-400">
             Don't have an account?{' '}

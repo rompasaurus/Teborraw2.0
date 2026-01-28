@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { GoogleOAuthProvider } from '@react-oauth/google'
 import { useAuthStore } from '@/store/authStore'
 import { Login } from '@/pages/Login'
 import { Register } from '@/pages/Register'
@@ -6,6 +7,8 @@ import { Dashboard } from '@/pages/Dashboard'
 import { Calendar } from '@/pages/Calendar'
 import { Thoughts } from '@/pages/Thoughts'
 import { Settings } from '@/pages/Settings'
+
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '59537193856-oc776rrlfild0aepqekjhf0j9b2hloqf.apps.googleusercontent.com'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
@@ -29,6 +32,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
     <Routes>
       {/* Public routes */}
       <Route
@@ -94,6 +98,7 @@ function App() {
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
+    </GoogleOAuthProvider>
   )
 }
 
