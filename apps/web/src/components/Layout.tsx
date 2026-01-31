@@ -10,7 +10,9 @@ import {
   Settings,
   User,
 } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/store/authStore'
+import { useThoughtsEditorStore } from '@/store/thoughtsEditorStore'
 import { authApi } from '@/services/api'
 
 interface LayoutProps {
@@ -92,6 +94,8 @@ function saveWidth(width: number): void {
 export function Layout({ children }: LayoutProps) {
   const location = useLocation()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const resetEditor = useThoughtsEditorStore((s) => s.reset)
   const { user, refreshToken, logout } = useAuthStore()
 
   // Initialize width from localStorage
@@ -163,6 +167,8 @@ export function Layout({ children }: LayoutProps) {
         // Ignore errors during logout
       }
     }
+    queryClient.clear()
+    resetEditor()
     logout()
     navigate('/login')
   }
