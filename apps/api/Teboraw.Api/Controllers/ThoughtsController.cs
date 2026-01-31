@@ -86,7 +86,7 @@ public class ThoughtsController : ControllerBase
 
         if (thought == null)
         {
-            return NotFound();
+            return NoContent();
         }
 
         return Ok(new ThoughtDto(

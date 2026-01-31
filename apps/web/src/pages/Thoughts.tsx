@@ -16,6 +16,7 @@ import {
   HistoryPanel,
   HistoryDiffView,
 } from '@/components/thoughts'
+import { FileText, PlusCircle } from 'lucide-react'
 import { thoughtsApi } from '@/services/api'
 import { useThoughtsEditorStore } from '@/store/thoughtsEditorStore'
 import { useTopicParser } from '@/hooks/useTopicParser'
@@ -65,7 +66,7 @@ export function Thoughts() {
   }, [tree, setTopicTree])
 
   // Fetch thoughts list
-  const { data: thoughtsData, isLoading: isLoadingList } = useQuery({
+  const { data: thoughtsData, isLoading: isLoadingList, isError: isListError } = useQuery({
     queryKey: ['thoughts'],
     queryFn: () => thoughtsApi.list({ pageSize: 50 }),
   })
@@ -242,7 +243,9 @@ export function Thoughts() {
                     <ThoughtsList
                       thoughts={thoughts}
                       isLoading={isLoadingList}
+                      isError={isListError}
                       onSelect={handleSelectThought}
+                      onNew={handleNew}
                     />
                   </div>
                 </Allotment.Pane>
@@ -267,7 +270,24 @@ export function Thoughts() {
                     title={getTitle()}
                   />
                   <div id="thoughts-editor-container" className="flex-1 overflow-hidden">
-                    <ThoughtsEditor onContentChange={handleContentChange} />
+                    {thoughts.length === 0 && !currentThoughtId && !draftContent ? (
+                      <div className="h-full flex flex-col items-center justify-center bg-slate-100 text-slate-600">
+                        <FileText className="w-16 h-16 mb-4 text-slate-400" />
+                        <h2 className="text-xl font-semibold mb-2">Welcome to Thoughts</h2>
+                        <p className="text-sm text-slate-500 mb-6 text-center max-w-md">
+                          Capture your ideas, notes, and reflections. Click the button below to create your first thought.
+                        </p>
+                        <button
+                          onClick={handleNew}
+                          className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg transition-colors"
+                        >
+                          <PlusCircle className="w-5 h-5" />
+                          Create Your First Thought
+                        </button>
+                      </div>
+                    ) : (
+                      <ThoughtsEditor onContentChange={handleContentChange} />
+                    )}
                   </div>
                 </div>
               </Allotment.Pane>
