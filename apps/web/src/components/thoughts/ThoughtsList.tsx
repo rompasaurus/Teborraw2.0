@@ -75,7 +75,7 @@ export function ThoughtsList({
 
   return (
     <div id="thoughts-list" className="h-full overflow-auto">
-      <div id="thoughts-list-header" className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-700">
+      <div id="thoughts-list-header" className="px-3 sm:px-3 py-3 sm:py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-700">
         Recent Thoughts
       </div>
       <div id="thoughts-list-items" className="divide-y divide-slate-700/50">
@@ -86,18 +86,18 @@ export function ThoughtsList({
               key={thought.id}
               id={`thoughts-list-item-${thought.id}`}
               onClick={() => handleSelect(thought)}
-              className={`w-full text-left px-3 py-2 hover:bg-slate-700/50 transition-colors ${
+              className={`w-full text-left px-3 py-3 sm:py-2 hover:bg-slate-700/50 active:bg-slate-700 transition-colors ${
                 isActive ? 'bg-slate-700 border-l-2 border-primary-500' : ''
               }`}
             >
               <p
-                className={`text-sm truncate ${
+                className={`text-sm sm:text-sm truncate ${
                   isActive ? 'text-primary-400' : 'text-slate-300'
                 }`}
               >
                 {getTitle(thought)}
               </p>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 mt-1 sm:mt-0.5">
                 {format(new Date(thought.updatedAt), 'MMM d, yyyy')}
               </p>
             </button>

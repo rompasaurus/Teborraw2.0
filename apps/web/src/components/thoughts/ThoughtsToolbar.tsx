@@ -33,30 +33,30 @@ export function ThoughtsToolbar({
   }
 
   return (
-    <div id="thoughts-toolbar" className="flex items-center justify-between px-4 py-2 bg-slate-800 border-b border-slate-700">
-      <div id="thoughts-toolbar-left" className="flex items-center gap-4">
-        <h2 id="thoughts-toolbar-title" className="text-lg font-medium text-white truncate max-w-md">
+    <div id="thoughts-toolbar" className="flex items-center justify-between px-2 sm:px-4 py-2 bg-slate-800 border-b border-slate-700 gap-2">
+      <div id="thoughts-toolbar-left" className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+        <h2 id="thoughts-toolbar-title" className="text-base sm:text-lg font-medium text-white truncate">
           {title || 'Untitled Thought'}
         </h2>
         {isDirty && (
-          <span id="thoughts-toolbar-unsaved-indicator" className="text-xs text-amber-400 flex items-center gap-1">
+          <span id="thoughts-toolbar-unsaved-indicator" className="text-xs text-amber-400 flex items-center gap-1 flex-shrink-0">
             <span className="w-2 h-2 bg-amber-400 rounded-full" />
-            Unsaved changes
+            <span className="hidden sm:inline">Unsaved changes</span>
           </span>
         )}
         {!isDirty && lastSavedAt && (
-          <span id="thoughts-toolbar-saved-indicator" className="text-xs text-slate-500">
+          <span id="thoughts-toolbar-saved-indicator" className="text-xs text-slate-500 hidden sm:block flex-shrink-0">
             Last saved at {formatLastSaved()}
           </span>
         )}
       </div>
 
-      <div id="thoughts-toolbar-actions" className="flex items-center gap-2">
+      <div id="thoughts-toolbar-actions" className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
         {onShowHistory && (
           <button
             id="thoughts-history-btn"
             onClick={onShowHistory}
-            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors"
+            className="p-2 sm:p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors"
             title="View history"
           >
             <History className="w-5 h-5" />
@@ -66,7 +66,7 @@ export function ThoughtsToolbar({
           <button
             id="thoughts-help-btn"
             onClick={onShowTutorial}
-            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors"
+            className="p-2 sm:p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors hidden sm:block"
             title="Show tutorial"
           >
             <HelpCircle className="w-5 h-5" />
@@ -77,7 +77,7 @@ export function ThoughtsToolbar({
             id="thoughts-delete-btn"
             onClick={() => setShowDeleteConfirm(true)}
             disabled={isDeleting}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm text-red-400 hover:text-red-300 hover:bg-slate-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2 sm:px-3 sm:py-1.5 text-sm text-red-400 hover:text-red-300 hover:bg-slate-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="Delete thought"
           >
             {isDeleting ? (
@@ -90,23 +90,25 @@ export function ThoughtsToolbar({
         <button
           id="thoughts-new-btn"
           onClick={onNew}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm text-slate-300 hover:text-white hover:bg-slate-700 rounded transition-colors"
+          className="p-2 sm:px-3 sm:py-1.5 text-sm text-slate-300 hover:text-white hover:bg-slate-700 rounded transition-colors flex items-center gap-2"
+          title="New thought"
         >
           <FilePlus className="w-4 h-4" />
-          New
+          <span className="hidden sm:inline">New</span>
         </button>
         <button
           id="thoughts-save-btn"
           onClick={onSave}
           disabled={isSaving || !isDirty}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm bg-primary-600 text-white rounded hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="p-2 sm:px-3 sm:py-1.5 text-sm bg-primary-600 text-white rounded hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          title={isSaving ? 'Saving...' : 'Save'}
         >
           {isSaving ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
             <Save className="w-4 h-4" />
           )}
-          {isSaving ? 'Saving...' : 'Save'}
+          <span className="hidden sm:inline">{isSaving ? 'Saving...' : 'Save'}</span>
         </button>
       </div>
 

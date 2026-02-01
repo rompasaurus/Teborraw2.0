@@ -31,7 +31,7 @@ export function TopicTreeNode({ node, level, path }: TopicTreeNodeProps) {
     <div id={`topic-node-${path}`} className="select-none">
       <div
         id={`topic-node-row-${path}`}
-        className={`flex items-center gap-1 px-2 py-1 cursor-pointer hover:bg-slate-700 rounded ${
+        className={`flex items-center gap-1.5 sm:gap-1 px-2 py-2.5 sm:py-1 cursor-pointer hover:bg-slate-700 active:bg-slate-600 rounded transition-colors ${
           isSelected ? 'bg-slate-700 text-primary-400' : 'text-slate-300'
         }`}
         style={{ paddingLeft: `${level * 12 + 8}px` }}
@@ -41,7 +41,7 @@ export function TopicTreeNode({ node, level, path }: TopicTreeNodeProps) {
           <button
             id={`topic-node-toggle-${path}`}
             onClick={handleToggle}
-            className="p-0.5 hover:bg-slate-600 rounded"
+            className="p-1 sm:p-0.5 hover:bg-slate-600 rounded -ml-1"
           >
             {isExpanded ? (
               <ChevronDown className="w-4 h-4" />
@@ -50,7 +50,7 @@ export function TopicTreeNode({ node, level, path }: TopicTreeNodeProps) {
             )}
           </button>
         ) : (
-          <span className="w-5" />
+          <span className="w-6 sm:w-5" />
         )}
         <FileText className="w-4 h-4 flex-shrink-0" />
         <span id={`topic-node-label-${path}`} className="truncate text-sm">{node.name || 'Untitled'}</span>

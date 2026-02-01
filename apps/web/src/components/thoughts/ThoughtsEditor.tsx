@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect } from 'react'
+import { useCallback, useRef, useEffect, useState } from 'react'
 import Editor, { OnMount, OnChange, BeforeMount } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
 import { useThoughtsEditorStore } from '@/store/thoughtsEditorStore'
@@ -7,23 +7,49 @@ interface ThoughtsEditorProps {
   onContentChange?: (content: string) => void
 }
 
-const EDITOR_OPTIONS: editor.IStandaloneEditorConstructionOptions = {
-  minimap: { enabled: true },
+// Hook to detect mobile screen size
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkIsMobile = () => setIsMobile(window.innerWidth < 768)
+    checkIsMobile()
+    window.addEventListener('resize', checkIsMobile)
+    return () => window.removeEventListener('resize', checkIsMobile)
+  }, [])
+
+  return isMobile
+}
+
+const getEditorOptions = (isMobile: boolean): editor.IStandaloneEditorConstructionOptions => ({
+  minimap: { enabled: !isMobile },
   wordWrap: 'on',
-  fontSize: 14,
-  lineNumbers: 'on',
+  fontSize: isMobile ? 16 : 14, // Larger font on mobile for readability
+  lineNumbers: isMobile ? 'off' : 'on',
   automaticLayout: true,
   scrollBeyondLastLine: false,
-  padding: { top: 16, bottom: 16 },
-  renderLineHighlight: 'all',
+  padding: { top: isMobile ? 12 : 16, bottom: isMobile ? 12 : 16 },
+  renderLineHighlight: isMobile ? 'none' : 'all',
   cursorBlinking: 'smooth',
   smoothScrolling: true,
-}
+  glyphMargin: !isMobile,
+  folding: !isMobile,
+  lineDecorationsWidth: isMobile ? 0 : 10,
+  lineNumbersMinChars: isMobile ? 0 : 3,
+})
 
 export function ThoughtsEditor({ onContentChange }: ThoughtsEditorProps) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
+  const isMobile = useIsMobile()
   const { draftContent, setDraftContent, currentTopic, setEditorInstance } =
     useThoughtsEditorStore()
+
+  // Update editor options when screen size changes
+  useEffect(() => {
+    if (editorRef.current) {
+      editorRef.current.updateOptions(getEditorOptions(isMobile))
+    }
+  }, [isMobile])
 
   const handleBeforeMount: BeforeMount = useCallback((monaco) => {
     monaco.editor.defineTheme('thoughts-theme', {
@@ -80,7 +106,7 @@ export function ThoughtsEditor({ onContentChange }: ThoughtsEditorProps) {
         beforeMount={handleBeforeMount}
         onMount={handleEditorMount}
         theme="thoughts-theme"
-        options={EDITOR_OPTIONS}
+        options={getEditorOptions(isMobile)}
         loading={
           <div id="thoughts-editor-loading" className="flex items-center justify-center h-full text-slate-400">
             Loading editor...

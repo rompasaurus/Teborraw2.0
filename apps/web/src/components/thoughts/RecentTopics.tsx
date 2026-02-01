@@ -123,11 +123,11 @@ export function RecentTopics({ thoughts, isCollapsed, onToggleCollapse, onTopicC
   return (
     <div className="h-full bg-slate-800 border-l border-slate-700 flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-slate-700">
+      <div className="flex items-center justify-between px-3 py-3 sm:py-2 border-b border-slate-700">
         <h3 className="text-sm font-medium text-white">Topics</h3>
         <button
           onClick={onToggleCollapse}
-          className="p-1 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors"
+          className="p-2 sm:p-1 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors hidden sm:block"
           title="Collapse"
         >
           <ChevronRight className="w-4 h-4" />
@@ -138,24 +138,24 @@ export function RecentTopics({ thoughts, isCollapsed, onToggleCollapse, onTopicC
       <div className="flex border-b border-slate-700">
         <button
           onClick={() => setSortMode('recent')}
-          className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs transition-colors ${
+          className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 sm:py-2 text-xs transition-colors ${
             sortMode === 'recent'
               ? 'text-primary-400 border-b-2 border-primary-400'
               : 'text-slate-400 hover:text-white'
           }`}
         >
-          <Clock className="w-3.5 h-3.5" />
+          <Clock className="w-4 sm:w-3.5 h-4 sm:h-3.5" />
           Recent
         </button>
         <button
           onClick={() => setSortMode('mostUsed')}
-          className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs transition-colors ${
+          className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 sm:py-2 text-xs transition-colors ${
             sortMode === 'mostUsed'
               ? 'text-primary-400 border-b-2 border-primary-400'
               : 'text-slate-400 hover:text-white'
           }`}
         >
-          <TrendingUp className="w-3.5 h-3.5" />
+          <TrendingUp className="w-4 sm:w-3.5 h-4 sm:h-3.5" />
           Most Used
         </button>
       </div>
@@ -172,9 +172,9 @@ export function RecentTopics({ thoughts, isCollapsed, onToggleCollapse, onTopicC
               <li key={topic.name}>
                 <button
                   onClick={() => onTopicClick?.(topic.name)}
-                  className="w-full flex items-start gap-2 px-2 py-1.5 rounded text-left hover:bg-slate-700 transition-colors group"
+                  className="w-full flex items-start gap-2 px-2 py-3 sm:py-1.5 rounded text-left hover:bg-slate-700 active:bg-slate-600 transition-colors group"
                 >
-                  <Hash className="w-3.5 h-3.5 text-slate-500 mt-0.5 flex-shrink-0" />
+                  <Hash className="w-4 sm:w-3.5 h-4 sm:h-3.5 text-slate-500 mt-0.5 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <span className="text-sm text-slate-300 group-hover:text-white capitalize truncate block">
                       {topic.name}

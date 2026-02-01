@@ -7,8 +7,10 @@ import {
   Lightbulb,
   LogOut,
   Map,
+  Menu,
   Settings,
   User,
+  X,
 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/store/authStore'
@@ -101,12 +103,18 @@ export function Layout({ children }: LayoutProps) {
   // Initialize width from localStorage
   const [sidebarWidth, setSidebarWidth] = useState(getSavedWidth)
   const [isDragging, setIsDragging] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const sidebarRef = useRef<HTMLElement>(null)
   const dragStartX = useRef(0)
   const dragStartWidth = useRef(0)
 
   // Determine if sidebar should show text based on width
   const showText = sidebarWidth > SIDEBAR_COLLAPSE_THRESHOLD
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setIsMobileMenuOpen(false)
+  }, [location.pathname])
 
   // Save width to localStorage when it changes
   useEffect(() => {
@@ -174,18 +182,45 @@ export function Layout({ children }: LayoutProps) {
   }
 
   return (
-    <div id="layout-root" className="min-h-screen bg-slate-900 flex">
-      {/* Sidebar */}
+    <div id="layout-root" className="h-screen bg-slate-900 flex flex-col md:flex-row overflow-hidden">
+      {/* Mobile Header */}
+      <header className="md:hidden bg-slate-800 border-b border-slate-700 px-4 py-3 flex items-center gap-3 flex-shrink-0 z-40">
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-2 -ml-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+          aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+        >
+          {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </button>
+        <div className="flex items-center gap-2">
+          <TeborawIcon className="w-7 h-7 text-primary-500" />
+          <h1 className="text-lg font-bold text-primary-500">Teboraw</h1>
+        </div>
+      </header>
+
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/50 z-30"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Sidebar - Hidden on mobile, visible on desktop. Shows as overlay when menu open on mobile */}
       <aside
         id="layout-sidebar"
         ref={sidebarRef}
-        className="bg-slate-800 border-r border-slate-700 flex flex-col relative flex-shrink-0"
+        className={`
+          bg-slate-800 border-r border-slate-700 flex flex-col flex-shrink-0
+          ${isMobileMenuOpen ? 'fixed inset-y-0 left-0 z-40 w-72' : 'hidden md:flex'}
+        `}
         style={{
-          width: sidebarWidth,
+          width: typeof window !== 'undefined' && window.innerWidth >= 768 ? sidebarWidth : undefined,
           transition: isDragging ? 'none' : 'width 0.2s ease-out'
         }}
       >
-        <div id="layout-logo-section" className="p-4 border-b border-slate-700 flex items-center justify-between">
+        {/* Logo section - Desktop only */}
+        <div id="layout-logo-section" className="hidden md:flex p-4 border-b border-slate-700 items-center justify-between">
           <div className={`flex items-center gap-3 ${!showText ? 'justify-center w-full' : ''}`}>
             <TeborawIcon className="w-8 h-8 text-primary-500 flex-shrink-0" />
             {showText && (
@@ -207,15 +242,15 @@ export function Layout({ children }: LayoutProps) {
                   <Link
                     id={`layout-nav-${item.label.toLowerCase()}`}
                     to={item.path}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                    className={`flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-lg transition-colors ${
                       isActive
                         ? 'bg-primary-600 text-white'
                         : 'text-slate-300 hover:bg-slate-700'
-                    } ${!showText ? 'justify-center' : ''}`}
+                    } ${!showText && 'md:justify-center'}`}
                     title={!showText ? item.label : undefined}
                   >
                     <Icon className="w-5 h-5 flex-shrink-0" />
-                    {showText && <span className="whitespace-nowrap overflow-hidden">{item.label}</span>}
+                    <span className={`whitespace-nowrap overflow-hidden ${!showText && 'md:hidden'}`}>{item.label}</span>
                   </Link>
                 </li>
               )
@@ -225,50 +260,48 @@ export function Layout({ children }: LayoutProps) {
 
         {/* User section */}
         <div id="layout-user-section" className="p-2 border-t border-slate-700">
-          <div id="layout-user-info" className={`flex items-center gap-3 px-3 py-2 ${!showText ? 'justify-center' : ''}`}>
+          <div id="layout-user-info" className={`flex items-center gap-3 px-3 py-2 ${!showText && 'md:justify-center'}`}>
             <div id="layout-user-avatar" className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0">
               <User className="w-4 h-4 text-slate-400" />
             </div>
-            {showText && (
-              <div className="flex-1 min-w-0 overflow-hidden">
-                <p id="layout-user-name" className="text-sm font-medium text-white truncate">
-                  {user?.displayName}
-                </p>
-                <p id="layout-user-email" className="text-xs text-slate-400 truncate">{user?.email}</p>
-              </div>
-            )}
+            <div className={`flex-1 min-w-0 overflow-hidden ${!showText && 'md:hidden'}`}>
+              <p id="layout-user-name" className="text-sm font-medium text-white truncate">
+                {user?.displayName}
+              </p>
+              <p id="layout-user-email" className="text-xs text-slate-400 truncate">{user?.email}</p>
+            </div>
           </div>
           <Link
             id="layout-settings-btn"
             to="/settings"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors mt-1 ${
+            className={`flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-lg transition-colors mt-1 ${
               location.pathname === '/settings'
                 ? 'bg-primary-600 text-white'
                 : 'text-slate-300 hover:bg-slate-700'
-            } ${!showText ? 'justify-center' : ''}`}
+            } ${!showText && 'md:justify-center'}`}
             title={!showText ? 'Settings' : undefined}
           >
             <Settings className="w-5 h-5 flex-shrink-0" />
-            {showText && <span className="whitespace-nowrap">Settings</span>}
+            <span className={`whitespace-nowrap ${!showText && 'md:hidden'}`}>Settings</span>
           </Link>
           <button
             id="layout-logout-btn"
             onClick={handleLogout}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-700 w-full mt-1 transition-colors ${
-              !showText ? 'justify-center' : ''
+            className={`flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-lg text-slate-300 hover:bg-slate-700 w-full mt-1 transition-colors ${
+              !showText && 'md:justify-center'
             }`}
             title={!showText ? 'Logout' : undefined}
           >
             <LogOut className="w-5 h-5 flex-shrink-0" />
-            {showText && <span className="whitespace-nowrap">Logout</span>}
+            <span className={`whitespace-nowrap ${!showText && 'md:hidden'}`}>Logout</span>
           </button>
         </div>
 
-        {/* Resize handle */}
+        {/* Resize handle - Desktop only */}
         <div
           id="layout-sidebar-resize-handle"
           onMouseDown={handleMouseDown}
-          className={`absolute top-0 right-0 w-1 h-full cursor-col-resize group hover:bg-primary-500/50 transition-colors ${
+          className={`hidden md:block absolute top-0 right-0 w-1 h-full cursor-col-resize group hover:bg-primary-500/50 transition-colors ${
             isDragging ? 'bg-primary-500' : 'bg-transparent'
           }`}
         >
@@ -282,8 +315,8 @@ export function Layout({ children }: LayoutProps) {
       </aside>
 
       {/* Main content */}
-      <main id="layout-main-content" className="flex-1 overflow-auto">
-        <div id="layout-content-wrapper" className="p-8">{children}</div>
+      <main id="layout-main-content" className="flex-1 min-h-0 overflow-hidden md:p-8">
+        {children}
       </main>
     </div>
   )

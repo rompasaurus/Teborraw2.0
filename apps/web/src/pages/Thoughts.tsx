@@ -16,7 +16,23 @@ import {
   HistoryPanel,
   HistoryDiffView,
 } from '@/components/thoughts'
-import { FileText, PlusCircle } from 'lucide-react'
+import { FileText, PlusCircle, Edit3, List, FolderTree, Hash } from 'lucide-react'
+
+// Hook to detect mobile screen size
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkIsMobile = () => setIsMobile(window.innerWidth < 768)
+    checkIsMobile()
+    window.addEventListener('resize', checkIsMobile)
+    return () => window.removeEventListener('resize', checkIsMobile)
+  }, [])
+
+  return isMobile
+}
+
+type MobileTab = 'editor' | 'topics' | 'thoughts' | 'recentTopics'
 import { thoughtsApi } from '@/services/api'
 import { useThoughtsEditorStore } from '@/store/thoughtsEditorStore'
 import { useTopicParser } from '@/hooks/useTopicParser'
@@ -29,6 +45,8 @@ const TOPICS_SIDEBAR_COLLAPSED_KEY = 'teboraw-topics-sidebar-collapsed'
 export function Thoughts() {
   const queryClient = useQueryClient()
   const shouldShowTutorial = useShouldShowTutorial()
+  const isMobile = useIsMobile()
+  const [mobileTab, setMobileTab] = useState<MobileTab>('editor')
   const [showTutorial, setShowTutorial] = useState(false)
   const [isTopicsSidebarCollapsed, setIsTopicsSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem(TOPICS_SIDEBAR_COLLAPSED_KEY)
@@ -222,121 +240,264 @@ export function Thoughts() {
     [setDraftContent]
   )
 
+  // Mobile tab navigation items
+  const mobileTabs = [
+    { id: 'editor' as const, label: 'Editor', icon: Edit3 },
+    { id: 'topics' as const, label: 'Topics', icon: FolderTree },
+    { id: 'thoughts' as const, label: 'Thoughts', icon: List },
+    { id: 'recentTopics' as const, label: 'Tags', icon: Hash },
+  ]
+
+  // Render mobile content based on active tab
+  const renderMobileContent = () => {
+    switch (mobileTab) {
+      case 'editor':
+        return (
+          <div className="h-full flex flex-col">
+            <ThoughtsToolbar
+              onSave={handleSave}
+              onNew={handleNew}
+              onDelete={handleDelete}
+              onShowTutorial={handleShowTutorial}
+              onShowHistory={handleShowHistory}
+              isSaving={isSaving}
+              isDeleting={isDeleting}
+              title={getTitle()}
+            />
+            <div className="flex-1 min-h-0 overflow-hidden">
+              {thoughts.length === 0 && !currentThoughtId && !draftContent ? (
+                <div className="h-full flex flex-col items-center justify-center bg-slate-100 text-slate-600 p-4">
+                  <FileText className="w-12 h-12 mb-4 text-slate-400" />
+                  <h2 className="text-lg font-semibold mb-2 text-center">Welcome to Thoughts</h2>
+                  <p className="text-sm text-slate-500 mb-6 text-center">
+                    Capture your ideas, notes, and reflections.
+                  </p>
+                  <button
+                    onClick={handleNew}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg transition-colors"
+                  >
+                    <PlusCircle className="w-5 h-5" />
+                    Create Your First Thought
+                  </button>
+                </div>
+              ) : (
+                <ThoughtsEditor onContentChange={handleContentChange} />
+              )}
+            </div>
+          </div>
+        )
+      case 'topics':
+        return (
+          <div className="h-full bg-slate-800 overflow-auto">
+            <TopicTree tree={tree} />
+            <div className="border-t border-slate-700 mt-2 pt-2">
+              <TopicDetails topic={currentTopic} />
+            </div>
+          </div>
+        )
+      case 'thoughts':
+        return (
+          <div className="h-full bg-slate-800 overflow-auto">
+            <ThoughtsList
+              thoughts={thoughts}
+              isLoading={isLoadingList}
+              isError={isListError}
+              onSelect={(thought) => {
+                handleSelectThought(thought)
+                setMobileTab('editor')
+              }}
+              onNew={() => {
+                handleNew()
+                setMobileTab('editor')
+              }}
+            />
+          </div>
+        )
+      case 'recentTopics':
+        return (
+          <div className="h-full bg-slate-800 overflow-auto">
+            <RecentTopics
+              thoughts={thoughts}
+              isCollapsed={false}
+              onToggleCollapse={() => {}}
+              onTopicClick={(topicName) => {
+                handleTopicClick(topicName)
+                setMobileTab('editor')
+              }}
+            />
+          </div>
+        )
+      default:
+        return null
+    }
+  }
+
   return (
     <Layout>
       {/* Tutorial Overlay */}
       <ThoughtsTutorial isOpen={showTutorial} onComplete={handleTutorialComplete} />
 
-      <div id="thoughts-page" className="h-[calc(100vh-2rem)] -m-6">
-        <Allotment>
-          {/* Left Panel: Topic Tree + Thoughts List (20%) */}
-          <Allotment.Pane preferredSize="20%" minSize={150} maxSize={400}>
-            <div id="thoughts-left-panel" className="h-full bg-slate-800 border-r border-slate-700">
+      {/* History Panel Modal for Mobile */}
+      {isMobile && isHistoryPanelOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900">
+          <HistoryPanel
+            thoughtId={currentThoughtId}
+            currentContent={draftContent}
+            currentTitle={getTitle()}
+            onRestore={(content) => {
+              handleRestoreFromHistory(content)
+              setMobileTab('editor')
+            }}
+            onClose={handleCloseHistory}
+          />
+        </div>
+      )}
+
+      {/* Mobile Layout */}
+      {isMobile ? (
+        <div id="thoughts-page-mobile" className="h-full flex flex-col overflow-hidden">
+          {/* Mobile Content Area */}
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {renderMobileContent()}
+          </div>
+
+          {/* Mobile Tab Bar */}
+          <nav className="bg-slate-800 border-t border-slate-700 flex-shrink-0">
+            <div className="flex">
+              {mobileTabs.map((tab) => {
+                const Icon = tab.icon
+                const isActive = mobileTab === tab.id
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setMobileTab(tab.id)}
+                    className={`flex-1 flex flex-col items-center gap-1 py-3 px-2 transition-colors ${
+                      isActive
+                        ? 'text-primary-400 bg-slate-700/50'
+                        : 'text-slate-400 hover:text-slate-300'
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className="text-xs">{tab.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </nav>
+        </div>
+      ) : (
+        /* Desktop Layout with Allotment */
+        <div id="thoughts-page" className="h-[calc(100vh-4rem)] -m-8">
+          <Allotment>
+            {/* Left Panel: Topic Tree + Thoughts List (20%) */}
+            <Allotment.Pane preferredSize="20%" minSize={150} maxSize={400}>
+              <div id="thoughts-left-panel" className="h-full bg-slate-800 border-r border-slate-700">
+                <Allotment vertical>
+                  {/* Topic Tree */}
+                  <Allotment.Pane preferredSize="60%">
+                    <TopicTree tree={tree} />
+                  </Allotment.Pane>
+                  {/* Thoughts List */}
+                  <Allotment.Pane>
+                    <div id="thoughts-list-panel" className="h-full border-t border-slate-700">
+                      <ThoughtsList
+                        thoughts={thoughts}
+                        isLoading={isLoadingList}
+                        isError={isListError}
+                        onSelect={handleSelectThought}
+                        onNew={handleNew}
+                      />
+                    </div>
+                  </Allotment.Pane>
+                </Allotment>
+              </div>
+            </Allotment.Pane>
+
+            {/* Center Panel: Editor + Details (65%) */}
+            <Allotment.Pane>
               <Allotment vertical>
-                {/* Topic Tree */}
-                <Allotment.Pane preferredSize="60%">
-                  <TopicTree tree={tree} />
-                </Allotment.Pane>
-                {/* Thoughts List */}
-                <Allotment.Pane>
-                  <div id="thoughts-list-panel" className="h-full border-t border-slate-700">
-                    <ThoughtsList
-                      thoughts={thoughts}
-                      isLoading={isLoadingList}
-                      isError={isListError}
-                      onSelect={handleSelectThought}
+                {/* Editor (75%) */}
+                <Allotment.Pane preferredSize="75%">
+                  <div id="thoughts-editor-panel" className="h-full flex flex-col">
+                    <ThoughtsToolbar
+                      onSave={handleSave}
                       onNew={handleNew}
+                      onDelete={handleDelete}
+                      onShowTutorial={handleShowTutorial}
+                      onShowHistory={handleShowHistory}
+                      isSaving={isSaving}
+                      isDeleting={isDeleting}
+                      title={getTitle()}
                     />
+                    <div id="thoughts-editor-container" className="flex-1 overflow-hidden">
+                      {thoughts.length === 0 && !currentThoughtId && !draftContent ? (
+                        <div className="h-full flex flex-col items-center justify-center bg-slate-100 text-slate-600">
+                          <FileText className="w-16 h-16 mb-4 text-slate-400" />
+                          <h2 className="text-xl font-semibold mb-2">Welcome to Thoughts</h2>
+                          <p className="text-sm text-slate-500 mb-6 text-center max-w-md">
+                            Capture your ideas, notes, and reflections. Click the button below to create your first thought.
+                          </p>
+                          <button
+                            onClick={handleNew}
+                            className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg transition-colors"
+                          >
+                            <PlusCircle className="w-5 h-5" />
+                            Create Your First Thought
+                          </button>
+                        </div>
+                      ) : (
+                        <ThoughtsEditor onContentChange={handleContentChange} />
+                      )}
+                    </div>
                   </div>
+                </Allotment.Pane>
+                {/* Topic Details or Diff View (25%) */}
+                <Allotment.Pane preferredSize="25%" minSize={100}>
+                  {isHistoryPanelOpen && selectedEntry ? (
+                    <HistoryDiffView
+                      originalContent={selectedEntry.content}
+                      modifiedContent={draftContent}
+                      originalTitle={`${selectedEntry.title} (${new Date(selectedEntry.timestamp).toLocaleString()})`}
+                      modifiedTitle="Current"
+                    />
+                  ) : (
+                    <div id="thoughts-details-panel" className="h-full bg-slate-800 border-t border-slate-700">
+                      <TopicDetails topic={currentTopic} />
+                    </div>
+                  )}
                 </Allotment.Pane>
               </Allotment>
-            </div>
-          </Allotment.Pane>
+            </Allotment.Pane>
 
-          {/* Center Panel: Editor + Details (65%) */}
-          <Allotment.Pane>
-            <Allotment vertical>
-              {/* Editor (75%) */}
-              <Allotment.Pane preferredSize="75%">
-                <div id="thoughts-editor-panel" className="h-full flex flex-col">
-                  <ThoughtsToolbar
-                    onSave={handleSave}
-                    onNew={handleNew}
-                    onDelete={handleDelete}
-                    onShowTutorial={handleShowTutorial}
-                    onShowHistory={handleShowHistory}
-                    isSaving={isSaving}
-                    isDeleting={isDeleting}
-                    title={getTitle()}
-                  />
-                  <div id="thoughts-editor-container" className="flex-1 overflow-hidden">
-                    {thoughts.length === 0 && !currentThoughtId && !draftContent ? (
-                      <div className="h-full flex flex-col items-center justify-center bg-slate-100 text-slate-600">
-                        <FileText className="w-16 h-16 mb-4 text-slate-400" />
-                        <h2 className="text-xl font-semibold mb-2">Welcome to Thoughts</h2>
-                        <p className="text-sm text-slate-500 mb-6 text-center max-w-md">
-                          Capture your ideas, notes, and reflections. Click the button below to create your first thought.
-                        </p>
-                        <button
-                          onClick={handleNew}
-                          className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg transition-colors"
-                        >
-                          <PlusCircle className="w-5 h-5" />
-                          Create Your First Thought
-                        </button>
-                      </div>
-                    ) : (
-                      <ThoughtsEditor onContentChange={handleContentChange} />
-                    )}
-                  </div>
-                </div>
-              </Allotment.Pane>
-              {/* Topic Details or Diff View (25%) */}
-              <Allotment.Pane preferredSize="25%" minSize={100}>
-                {isHistoryPanelOpen && selectedEntry ? (
-                  <HistoryDiffView
-                    originalContent={selectedEntry.content}
-                    modifiedContent={draftContent}
-                    originalTitle={`${selectedEntry.title} (${new Date(selectedEntry.timestamp).toLocaleString()})`}
-                    modifiedTitle="Current"
-                  />
-                ) : (
-                  <div id="thoughts-details-panel" className="h-full bg-slate-800 border-t border-slate-700">
-                    <TopicDetails topic={currentTopic} />
-                  </div>
-                )}
-              </Allotment.Pane>
-            </Allotment>
-          </Allotment.Pane>
-
-          {/* Right Panel: Recent Topics (15% or collapsed) */}
-          <Allotment.Pane
-            preferredSize={isTopicsSidebarCollapsed ? 44 : '15%'}
-            minSize={44}
-            maxSize={isTopicsSidebarCollapsed ? 44 : 300}
-          >
-            <RecentTopics
-              thoughts={thoughts}
-              isCollapsed={isTopicsSidebarCollapsed}
-              onToggleCollapse={handleToggleTopicsSidebar}
-              onTopicClick={handleTopicClick}
-            />
-          </Allotment.Pane>
-
-          {/* History Panel (conditional) */}
-          {isHistoryPanelOpen && (
-            <Allotment.Pane preferredSize="20%" minSize={250} maxSize={400}>
-              <HistoryPanel
-                thoughtId={currentThoughtId}
-                currentContent={draftContent}
-                currentTitle={getTitle()}
-                onRestore={handleRestoreFromHistory}
-                onClose={handleCloseHistory}
+            {/* Right Panel: Recent Topics (15% or collapsed) */}
+            <Allotment.Pane
+              preferredSize={isTopicsSidebarCollapsed ? 44 : '15%'}
+              minSize={44}
+              maxSize={isTopicsSidebarCollapsed ? 44 : 300}
+            >
+              <RecentTopics
+                thoughts={thoughts}
+                isCollapsed={isTopicsSidebarCollapsed}
+                onToggleCollapse={handleToggleTopicsSidebar}
+                onTopicClick={handleTopicClick}
               />
             </Allotment.Pane>
-          )}
-        </Allotment>
-      </div>
+
+            {/* History Panel (conditional) */}
+            {isHistoryPanelOpen && (
+              <Allotment.Pane preferredSize="20%" minSize={250} maxSize={400}>
+                <HistoryPanel
+                  thoughtId={currentThoughtId}
+                  currentContent={draftContent}
+                  currentTitle={getTitle()}
+                  onRestore={handleRestoreFromHistory}
+                  onClose={handleCloseHistory}
+                />
+              </Allotment.Pane>
+            )}
+          </Allotment>
+        </div>
+      )}
     </Layout>
   )
 }

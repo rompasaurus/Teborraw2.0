@@ -23,7 +23,7 @@ export function TopicTree({ tree }: TopicTreeProps) {
 
   return (
     <div id="topic-tree" className="h-full overflow-auto py-2">
-      <div id="topic-tree-header" className="px-3 pb-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+      <div id="topic-tree-header" className="px-3 pb-3 sm:pb-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
         Topics
       </div>
       {tree.map((node, index) => (
