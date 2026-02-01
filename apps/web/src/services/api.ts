@@ -145,3 +145,40 @@ export const thoughtsApi = {
 
   getTags: () => api.get('/thoughts/tags'),
 }
+
+// Locations API
+export const locationsApi = {
+  list: (params?: {
+    startDate?: string
+    endDate?: string
+    minLatitude?: number
+    maxLatitude?: number
+    minLongitude?: number
+    maxLongitude?: number
+    page?: number
+    pageSize?: number
+  }) => api.get('/locations', { params }),
+
+  getSummary: (params?: { startDate?: string; endDate?: string }) =>
+    api.get('/locations/summary', { params }),
+
+  getClusters: (params: {
+    startDate?: string
+    endDate?: string
+    zoom?: number
+  }) => api.get('/locations/clusters', { params }),
+
+  getHeatmap: (params?: { startDate?: string; endDate?: string }) =>
+    api.get('/locations/heatmap', { params }),
+
+  deleteAll: () => api.delete('/locations'),
+
+  export: (data: {
+    format: 'json' | 'gpx' | 'csv'
+    startDate?: string
+    endDate?: string
+  }) =>
+    api.post('/locations/export', data, {
+      responseType: 'blob',
+    }),
+}

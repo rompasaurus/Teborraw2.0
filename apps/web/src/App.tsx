@@ -7,6 +7,7 @@ import { Dashboard } from '@/pages/Dashboard'
 import { Calendar } from '@/pages/Calendar'
 import { Thoughts } from '@/pages/Thoughts'
 import { Settings } from '@/pages/Settings'
+import { Locations } from '@/pages/Locations'
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '59537193856-oc776rrlfild0aepqekjhf0j9b2hloqf.apps.googleusercontent.com'
 
@@ -81,7 +82,7 @@ function App() {
         path="/locations"
         element={
           <ProtectedRoute>
-            <Dashboard />
+            <Locations />
           </ProtectedRoute>
         }
       />

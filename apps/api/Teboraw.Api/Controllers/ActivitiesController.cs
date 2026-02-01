@@ -170,6 +170,29 @@ public class ActivitiesController : ControllerBase
                 Data = activityRequest.Data != null ? JsonDocument.Parse(JsonSerializer.Serialize(activityRequest.Data)) : null
             };
 
+            // If this is a Location activity, also create the LocationPoint entity for better querying
+            if (activityRequest.Type == ActivityType.Location && activityRequest.Data != null)
+            {
+                try
+                {
+                    var data = activityRequest.Data;
+                    activity.Location = new LocationPoint
+                    {
+                        Latitude = data.ContainsKey("latitude") ? Convert.ToDouble(data["latitude"]) : 0,
+                        Longitude = data.ContainsKey("longitude") ? Convert.ToDouble(data["longitude"]) : 0,
+                        Accuracy = data.ContainsKey("accuracy") ? Convert.ToDouble(data["accuracy"]) : 0,
+                        Altitude = data.ContainsKey("altitude") ? Convert.ToDouble(data["altitude"]) : null,
+                        Speed = data.ContainsKey("speed") ? Convert.ToDouble(data["speed"]) : null,
+                        Heading = data.ContainsKey("heading") ? Convert.ToDouble(data["heading"]) : null,
+                        RecordedAt = activityRequest.Timestamp ?? DateTime.UtcNow
+                    };
+                }
+                catch (Exception)
+                {
+                    // If parsing fails, continue without the LocationPoint
+                }
+            }
+
             await _unitOfWork.Activities.AddAsync(activity);
             syncedCount++;
         }

@@ -109,6 +109,7 @@ public class TeborawDbContext : DbContext
         modelBuilder.Entity<LocationPoint>(entity =>
         {
             entity.HasIndex(e => e.RecordedAt);
+            entity.HasIndex(e => new { e.Latitude, e.Longitude });
             entity.HasOne(e => e.Activity)
                 .WithOne(a => a.Location)
                 .HasForeignKey<LocationPoint>(e => e.ActivityId)
