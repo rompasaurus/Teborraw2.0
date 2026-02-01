@@ -3,16 +3,17 @@ using System.ComponentModel.DataAnnotations;
 namespace Teboraw.Api.DTOs;
 
 // Query parameters for location filtering
-public record LocationQueryRequest(
-    DateTime? StartDate,
-    DateTime? EndDate,
-    double? MinLatitude,
-    double? MaxLatitude,
-    double? MinLongitude,
-    double? MaxLongitude,
-    int Page = 1,
-    int PageSize = 100
-);
+public class LocationQueryRequest
+{
+    public DateTime? StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public double? MinLatitude { get; set; }
+    public double? MaxLatitude { get; set; }
+    public double? MinLongitude { get; set; }
+    public double? MaxLongitude { get; set; }
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 100;
+}
 
 // Location with calculated duration at that point
 public record LocationWithDurationDto(

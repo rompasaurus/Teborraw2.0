@@ -27,6 +27,13 @@ public class LocationsController : ControllerBase
         return Guid.Parse(userIdClaim!);
     }
 
+    private static DateTime ToUtc(DateTime dt)
+    {
+        return dt.Kind == DateTimeKind.Unspecified
+            ? DateTime.SpecifyKind(dt, DateTimeKind.Utc)
+            : dt.ToUniversalTime();
+    }
+
     [HttpGet]
     public async Task<ActionResult<PaginatedResponse<LocationWithDurationDto>>> GetLocations([FromQuery] LocationQueryRequest filter)
     {
@@ -38,12 +45,14 @@ public class LocationsController : ControllerBase
         // Apply date filters
         if (filter.StartDate.HasValue)
         {
-            query = query.Where(l => l.RecordedAt >= filter.StartDate.Value);
+            var startUtc = ToUtc(filter.StartDate.Value);
+            query = query.Where(l => l.RecordedAt >= startUtc);
         }
 
         if (filter.EndDate.HasValue)
         {
-            query = query.Where(l => l.RecordedAt <= filter.EndDate.Value);
+            var endUtc = ToUtc(filter.EndDate.Value);
+            query = query.Where(l => l.RecordedAt <= endUtc);
         }
 
         // Apply geo bounding box filter
@@ -120,11 +129,13 @@ public class LocationsController : ControllerBase
 
         if (startDate.HasValue)
         {
-            query = query.Where(l => l.RecordedAt >= startDate.Value);
+            var startUtc = ToUtc(startDate.Value);
+            query = query.Where(l => l.RecordedAt >= startUtc);
         }
         if (endDate.HasValue)
         {
-            query = query.Where(l => l.RecordedAt <= endDate.Value);
+            var endUtc = ToUtc(endDate.Value);
+            query = query.Where(l => l.RecordedAt <= endUtc);
         }
 
         var locations = await query.OrderBy(l => l.RecordedAt).ToListAsync();
@@ -192,11 +203,13 @@ public class LocationsController : ControllerBase
 
         if (startDate.HasValue)
         {
-            query = query.Where(l => l.RecordedAt >= startDate.Value);
+            var startUtc = ToUtc(startDate.Value);
+            query = query.Where(l => l.RecordedAt >= startUtc);
         }
         if (endDate.HasValue)
         {
-            query = query.Where(l => l.RecordedAt <= endDate.Value);
+            var endUtc = ToUtc(endDate.Value);
+            query = query.Where(l => l.RecordedAt <= endUtc);
         }
 
         var locations = await query.OrderBy(l => l.RecordedAt).ToListAsync();
@@ -246,11 +259,13 @@ public class LocationsController : ControllerBase
 
         if (startDate.HasValue)
         {
-            query = query.Where(l => l.RecordedAt >= startDate.Value);
+            var startUtc = ToUtc(startDate.Value);
+            query = query.Where(l => l.RecordedAt >= startUtc);
         }
         if (endDate.HasValue)
         {
-            query = query.Where(l => l.RecordedAt <= endDate.Value);
+            var endUtc = ToUtc(endDate.Value);
+            query = query.Where(l => l.RecordedAt <= endUtc);
         }
 
         var locations = await query.ToListAsync();
@@ -305,11 +320,13 @@ public class LocationsController : ControllerBase
 
         if (request.StartDate.HasValue)
         {
-            query = query.Where(l => l.RecordedAt >= request.StartDate.Value);
+            var startUtc = ToUtc(request.StartDate.Value);
+            query = query.Where(l => l.RecordedAt >= startUtc);
         }
         if (request.EndDate.HasValue)
         {
-            query = query.Where(l => l.RecordedAt <= request.EndDate.Value);
+            var endUtc = ToUtc(request.EndDate.Value);
+            query = query.Where(l => l.RecordedAt <= endUtc);
         }
 
         var locations = await query.OrderBy(l => l.RecordedAt).ToListAsync();
