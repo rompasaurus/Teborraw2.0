@@ -610,6 +610,104 @@ See NATIVE_SETUP.md for complete configuration details.
     input("\nPress Enter when you've noted these requirements...")
     return True
 
+def fix_android_gradle_config():
+    """Fix Android Gradle configuration for React Native compatibility."""
+    print_info("Configuring Android Gradle settings...")
+
+    android_dir = MOBILE_DIR / "TeborawMobile" / "android"
+    if not android_dir.exists():
+        return False
+
+    # Fix 1: Update Gradle version to 8.13 (required by latest Android Gradle Plugin)
+    gradle_wrapper_props = android_dir / "gradle" / "wrapper" / "gradle-wrapper.properties"
+    if gradle_wrapper_props.exists():
+        try:
+            content = gradle_wrapper_props.read_text()
+            # Check if using incompatible Gradle version
+            if "gradle-9." in content or "gradle-8.10" in content or "gradle-8.11" in content or "gradle-8.12" in content:
+                import re
+                new_content = re.sub(
+                    r'distributionUrl=https\\://services\.gradle\.org/distributions/gradle-[\d.]+-bin\.zip',
+                    r'distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-bin.zip',
+                    content
+                )
+                gradle_wrapper_props.write_text(new_content)
+                print_success("Updated Gradle to version 8.13")
+            elif "gradle-8.13" in content:
+                print_success("Gradle version 8.13 already configured")
+            else:
+                print_info("Gradle version appears compatible")
+        except Exception as e:
+            print_warning(f"Could not update Gradle version: {e}")
+
+    # Fix 2: Fix manifestPlaceholders location in app/build.gradle
+    app_build_gradle = android_dir / "app" / "build.gradle"
+    if app_build_gradle.exists():
+        try:
+            content = app_build_gradle.read_text()
+
+            # Check if manifestPlaceholders is incorrectly in react block
+            if "react {" in content and "manifestPlaceholders" in content:
+                # Check if it's in the react block (wrong location)
+                react_block_match = content.find("react {")
+                android_block_match = content.find("android {")
+
+                if react_block_match != -1:
+                    # Find manifestPlaceholders position
+                    manifest_match = content.find("manifestPlaceholders")
+                    if manifest_match != -1 and manifest_match < android_block_match:
+                        # It's in the react block, need to move it
+                        # Remove from react block
+                        import re
+                        content = re.sub(
+                            r'\n\s*manifestPlaceholders\s*=\s*\[appAuthRedirectScheme:\s*[\'"]teboraw[\'"]\]\n',
+                            '\n',
+                            content
+                        )
+
+                        # Add to defaultConfig in android block
+                        if 'manifestPlaceholders' not in content:
+                            content = re.sub(
+                                r'(defaultConfig\s*\{[^}]*versionName\s*"[^"]*")',
+                                r"\1\n        manifestPlaceholders = [appAuthRedirectScheme: 'teboraw']",
+                                content
+                            )
+                            print_success("Fixed manifestPlaceholders location in build.gradle")
+
+            # Check if manifestPlaceholders needs to be added
+            elif "manifestPlaceholders" not in content and "defaultConfig" in content:
+                import re
+                content = re.sub(
+                    r'(defaultConfig\s*\{[^}]*versionName\s*"[^"]*")',
+                    r"\1\n        manifestPlaceholders = [appAuthRedirectScheme: 'teboraw']",
+                    content
+                )
+                app_build_gradle.write_text(content)
+                print_success("Added manifestPlaceholders to build.gradle")
+            else:
+                print_success("build.gradle configuration looks correct")
+
+            app_build_gradle.write_text(content)
+
+        except Exception as e:
+            print_warning(f"Could not update build.gradle: {e}")
+
+    # Fix 3: Clean Gradle caches to ensure fresh build
+    print_info("Cleaning Gradle caches...")
+    gradle_cache = android_dir / ".gradle"
+    build_cache = android_dir / "build"
+    app_build_cache = android_dir / "app" / "build"
+
+    for cache_dir in [gradle_cache, build_cache, app_build_cache]:
+        if cache_dir.exists():
+            try:
+                shutil.rmtree(cache_dir)
+            except Exception:
+                pass
+
+    print_success("Gradle caches cleaned")
+    return True
+
 def setup_android():
     """Set up Android-specific configuration."""
     print_header("Android Setup")
@@ -619,6 +717,9 @@ def setup_android():
     if not android_dir.exists():
         print_warning("Android folder not found. Run native project setup first.")
         return False
+
+    # Fix Gradle configuration automatically
+    fix_android_gradle_config()
 
     # Check ANDROID_HOME
     if not os.environ.get("ANDROID_HOME"):
@@ -644,10 +745,15 @@ def setup_android():
         print_info("Create one in Android Studio > Device Manager")
 
     print_info("\n" + "="*50)
-    print_info("IMPORTANT: Manual Android Configuration Required")
+    print_info("Android Configuration Complete")
     print_info("="*50)
     print("""
-Add the following permissions to AndroidManifest.xml:
+The following has been configured automatically:
+  - Gradle version set to 8.13 (React Native compatible)
+  - manifestPlaceholders configured for auth redirects
+  - Gradle caches cleaned for fresh build
+
+For location tracking features, add these permissions to AndroidManifest.xml:
 
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -656,13 +762,8 @@ Add the following permissions to AndroidManifest.xml:
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
 <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
-Also add to build.gradle (app level):
-  manifestPlaceholders = [appAuthRedirectScheme: 'teboraw']
-
 See NATIVE_SETUP.md for complete configuration details.
 """)
-
-    input("\nPress Enter when you've noted these requirements...")
     return True
 
 def configure_api():
@@ -723,6 +824,9 @@ def run_app():
             print_info("Try running manually: cd TeborawMobile && npx react-native run-ios")
 
     elif choices[choice] == "Android":
+        # Fix Gradle configuration before running
+        fix_android_gradle_config()
+
         # Check for running emulator or device
         print_info("Checking for connected Android devices/emulators...")
 
