@@ -10,6 +10,7 @@ interface ThoughtsToolbarProps {
   onShowHistory?: () => void
   isSaving?: boolean
   isDeleting?: boolean
+  isTitleMissing?: boolean
   title?: string
 }
 
@@ -21,9 +22,10 @@ export function ThoughtsToolbar({
   onShowHistory,
   isSaving,
   isDeleting,
+  isTitleMissing,
   title,
 }: ThoughtsToolbarProps) {
-  const { isDirty, lastSavedAt, currentThoughtId } = useThoughtsEditorStore()
+  const { isDirty, lastSavedAt, currentThoughtId, setDraftTitle } = useThoughtsEditorStore()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const formatLastSaved = () => {
@@ -35,9 +37,18 @@ export function ThoughtsToolbar({
   return (
     <div id="thoughts-toolbar" className="flex items-center justify-between px-2 sm:px-4 py-2 bg-slate-800 border-b border-slate-700 gap-2">
       <div id="thoughts-toolbar-left" className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
-        <h2 id="thoughts-toolbar-title" className="text-base sm:text-lg font-medium text-white truncate">
-          {title || 'Untitled Thought'}
-        </h2>
+        <input
+          id="thoughts-toolbar-title"
+          type="text"
+          value={title ?? ''}
+          onChange={(e) => setDraftTitle(e.target.value)}
+          placeholder="Title required..."
+          className={`text-base sm:text-lg font-medium bg-transparent border-b-2 outline-none min-w-0 flex-1 max-w-xs sm:max-w-md transition-colors ${
+            isTitleMissing
+              ? 'text-red-400 border-red-500 placeholder:text-red-400/70'
+              : 'text-white border-transparent focus:border-slate-500 placeholder:text-slate-500'
+          }`}
+        />
         {isDirty && (
           <span id="thoughts-toolbar-unsaved-indicator" className="text-xs text-amber-400 flex items-center gap-1 flex-shrink-0">
             <span className="w-2 h-2 bg-amber-400 rounded-full" />
@@ -99,9 +110,9 @@ export function ThoughtsToolbar({
         <button
           id="thoughts-save-btn"
           onClick={onSave}
-          disabled={isSaving || !isDirty}
+          disabled={isSaving || !isDirty || isTitleMissing}
           className="p-2 sm:px-3 sm:py-1.5 text-sm bg-primary-600 text-white rounded hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-          title={isSaving ? 'Saving...' : 'Save'}
+          title={isTitleMissing ? 'Title required' : isSaving ? 'Saving...' : 'Save'}
         >
           {isSaving ? (
             <Loader2 className="w-4 h-4 animate-spin" />

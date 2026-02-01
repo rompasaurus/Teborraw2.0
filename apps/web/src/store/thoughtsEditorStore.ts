@@ -13,6 +13,7 @@ interface ThoughtsEditorState {
   currentTopic: Topic | null
 
   // Draft state for auto-save
+  draftTitle: string
   draftContent: string
   isDirty: boolean
   lastSavedAt: Date | null
@@ -25,6 +26,7 @@ interface ThoughtsEditorState {
 
   // Actions
   setCurrentThought: (thought: Thought | null) => void
+  setDraftTitle: (title: string) => void
   setDraftContent: (content: string) => void
   setTopicTree: (tree: TopicTreeElement[]) => void
   selectTopic: (path: string | null, topic: Topic | null) => void
@@ -36,7 +38,8 @@ interface ThoughtsEditorState {
   insertTextAtCursor: (text: string) => void
 }
 
-const DEFAULT_CONTENT = 'Untitled Thought:\n    '
+const DEFAULT_TITLE = ''
+const DEFAULT_CONTENT = ''
 
 export const useThoughtsEditorStore = create<ThoughtsEditorState>()(
   persist(
@@ -46,6 +49,7 @@ export const useThoughtsEditorStore = create<ThoughtsEditorState>()(
       currentThoughtId: null,
       topicTree: [],
       currentTopic: null,
+      draftTitle: DEFAULT_TITLE,
       draftContent: '',
       isDirty: false,
       lastSavedAt: null,
@@ -57,9 +61,16 @@ export const useThoughtsEditorStore = create<ThoughtsEditorState>()(
         set({
           currentThought: thought,
           currentThoughtId: thought?.id ?? null,
+          draftTitle: thought?.title ?? '',
           draftContent: thought?.content ?? '',
           isDirty: false,
           lastSavedAt: thought ? new Date() : null,
+        }),
+
+      setDraftTitle: (title) =>
+        set({
+          draftTitle: title,
+          isDirty: true,
         }),
 
       setDraftContent: (content) =>
@@ -94,6 +105,7 @@ export const useThoughtsEditorStore = create<ThoughtsEditorState>()(
         set({
           currentThought: null,
           currentThoughtId: null,
+          draftTitle: DEFAULT_TITLE,
           draftContent: DEFAULT_CONTENT,
           topicTree: [],
           currentTopic: null,
@@ -107,6 +119,7 @@ export const useThoughtsEditorStore = create<ThoughtsEditorState>()(
           currentThoughtId: null,
           topicTree: [],
           currentTopic: null,
+          draftTitle: '',
           draftContent: '',
           isDirty: false,
           lastSavedAt: null,
@@ -153,9 +166,10 @@ export const useThoughtsEditorStore = create<ThoughtsEditorState>()(
       name: 'teboraw-thoughts-editor',
       partialize: (state) => ({
         // Only persist draft content and current thought ID for recovery
+        // Don't persist isDirty - it should reset on page load so welcome page shows
         currentThoughtId: state.currentThoughtId,
+        draftTitle: state.draftTitle,
         draftContent: state.draftContent,
-        isDirty: state.isDirty,
       }),
     }
   )

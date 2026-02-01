@@ -59,7 +59,9 @@ export function Thoughts() {
   const selectedEntry = currentThoughtHistory.find((e) => e.id === selectedEntryId)
   const {
     currentThoughtId,
+    draftTitle,
     draftContent,
+    isDirty,
     currentTopic,
     setCurrentThought,
     setDraftContent,
@@ -70,13 +72,16 @@ export function Thoughts() {
   } = useThoughtsEditorStore()
 
   // Parse topics from content
-  const { tree, getTitle } = useTopicParser(
+  const { tree } = useTopicParser(
     draftContent,
     currentThoughtId ?? undefined
   )
 
+  // Check if title is missing
+  const isTitleMissing = !draftTitle.trim()
+
   // Auto-snapshot for history tracking
-  useAutoSnapshot(currentThoughtId, draftContent, getTitle())
+  useAutoSnapshot(currentThoughtId, draftContent, draftTitle)
 
   // Update topic tree when content changes
   useEffect(() => {
@@ -93,22 +98,22 @@ export function Thoughts() {
   const { data: latestData } = useQuery({
     queryKey: ['thoughts', 'latest'],
     queryFn: () => thoughtsApi.getLatest(),
-    enabled: !currentThoughtId && !draftContent,
+    enabled: !currentThoughtId && !draftContent && !isDirty,
   })
 
-  // Load latest thought on initial mount
+  // Load latest thought on initial mount (not when creating a new thought)
   useEffect(() => {
-    if (latestData?.data && !currentThoughtId && !draftContent) {
+    if (latestData?.data && !currentThoughtId && !draftContent && !isDirty) {
       setCurrentThought(latestData.data)
     }
-  }, [latestData, currentThoughtId, draftContent, setCurrentThought])
+  }, [latestData, currentThoughtId, draftContent, isDirty, setCurrentThought])
 
   // Create mutation
   const createMutation = useMutation({
-    mutationFn: (content: string) =>
+    mutationFn: ({ content, title }: { content: string; title: string }) =>
       thoughtsApi.create({
         content,
-        title: getTitle(),
+        title,
         topicTree: JSON.stringify(tree),
       }),
     onSuccess: (response) => {
@@ -120,10 +125,10 @@ export function Thoughts() {
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: ({ id, content }: { id: string; content: string }) =>
+    mutationFn: ({ id, content, title }: { id: string; content: string; title: string }) =>
       thoughtsApi.update(id, {
         content,
-        title: getTitle(),
+        title,
         topicTree: JSON.stringify(tree),
       }),
     onSuccess: (response) => {
@@ -149,12 +154,12 @@ export function Thoughts() {
   const handleSave = useCallback(() => {
     if (currentThoughtId) {
       // Add history entry on save
-      addHistoryEntry(currentThoughtId, draftContent, getTitle(), 'save')
-      updateMutation.mutate({ id: currentThoughtId, content: draftContent })
+      addHistoryEntry(currentThoughtId, draftContent, draftTitle, 'save')
+      updateMutation.mutate({ id: currentThoughtId, content: draftContent, title: draftTitle })
     } else {
-      createMutation.mutate(draftContent)
+      createMutation.mutate({ content: draftContent, title: draftTitle })
     }
-  }, [currentThoughtId, draftContent, getTitle, addHistoryEntry, createMutation, updateMutation])
+  }, [currentThoughtId, draftContent, draftTitle, addHistoryEntry, createMutation, updateMutation])
 
   const handleNew = useCallback(() => {
     createNewThought()
@@ -262,10 +267,11 @@ export function Thoughts() {
               onShowHistory={handleShowHistory}
               isSaving={isSaving}
               isDeleting={isDeleting}
-              title={getTitle()}
+              isTitleMissing={isTitleMissing}
+              title={draftTitle}
             />
             <div className="flex-1 min-h-0 overflow-hidden">
-              {thoughts.length === 0 && !currentThoughtId && !draftContent ? (
+              {thoughts.length === 0 && !currentThoughtId && !draftContent && !isDirty ? (
                 <div className="h-full flex flex-col items-center justify-center bg-slate-100 text-slate-600 p-4">
                   <FileText className="w-12 h-12 mb-4 text-slate-400" />
                   <h2 className="text-lg font-semibold mb-2 text-center">Welcome to Thoughts</h2>
@@ -343,7 +349,7 @@ export function Thoughts() {
           <HistoryPanel
             thoughtId={currentThoughtId}
             currentContent={draftContent}
-            currentTitle={getTitle()}
+            currentTitle={draftTitle}
             onRestore={(content) => {
               handleRestoreFromHistory(content)
               setMobileTab('editor')
@@ -427,10 +433,11 @@ export function Thoughts() {
                       onShowHistory={handleShowHistory}
                       isSaving={isSaving}
                       isDeleting={isDeleting}
-                      title={getTitle()}
+                      isTitleMissing={isTitleMissing}
+                      title={draftTitle}
                     />
                     <div id="thoughts-editor-container" className="flex-1 overflow-hidden">
-                      {thoughts.length === 0 && !currentThoughtId && !draftContent ? (
+                      {thoughts.length === 0 && !currentThoughtId && !draftContent && !isDirty ? (
                         <div className="h-full flex flex-col items-center justify-center bg-slate-100 text-slate-600">
                           <FileText className="w-16 h-16 mb-4 text-slate-400" />
                           <h2 className="text-xl font-semibold mb-2">Welcome to Thoughts</h2>
@@ -489,7 +496,7 @@ export function Thoughts() {
                 <HistoryPanel
                   thoughtId={currentThoughtId}
                   currentContent={draftContent}
-                  currentTitle={getTitle()}
+                  currentTitle={draftTitle}
                   onRestore={handleRestoreFromHistory}
                   onClose={handleCloseHistory}
                 />

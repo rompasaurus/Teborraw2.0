@@ -20,7 +20,7 @@ function numberOfSpaces(text: string): number {
 /**
  * Parses content into a flat list of topics.
  * Lines ending with ':' become topics.
- * The first line becomes the thought title.
+ * Title is handled separately - not part of the topic tree.
  */
 export function parseTopicsFromContent(
   content: string,
@@ -29,24 +29,18 @@ export function parseTopicsFromContent(
   const topics: Topic[] = []
   const lines = content.split('\n')
 
-  // First line becomes the title/root topic
-  const firstLine = lines[0]?.trim() || 'Untitled'
-  let currentTopic: Topic = {
-    text: firstLine.replace(/:$/, '').trim(),
-    thoughtId,
-    numberOfTabs: -1,
-    numberOfSpaces: 0,
-    topicInformation: 'Thought Title',
-    lineNumber: 0,
-  }
-
+  let currentTopic: Topic | null = null
   let lineCount = 0
+
   for (const line of lines) {
     const trimmedEnd = line.trimEnd()
 
     // Lines ending with ':' are topics
     if (trimmedEnd.endsWith(':')) {
-      topics.push(currentTopic)
+      // Push previous topic if exists
+      if (currentTopic) {
+        topics.push(currentTopic)
+      }
 
       currentTopic = {
         text: trimmedEnd.replace(/:$/, '').trim(),
@@ -56,8 +50,8 @@ export function parseTopicsFromContent(
         topicInformation: '',
         lineNumber: lineCount,
       }
-    } else {
-      // Non-topic lines become topic information
+    } else if (currentTopic) {
+      // Non-topic lines become topic information (only if we have a current topic)
       const trimmedLine = line.trim()
       if (trimmedLine) {
         currentTopic.topicInformation +=
@@ -68,8 +62,10 @@ export function parseTopicsFromContent(
     lineCount++
   }
 
-  // Push the last topic
-  topics.push(currentTopic)
+  // Push the last topic if exists
+  if (currentTopic) {
+    topics.push(currentTopic)
+  }
 
   return topics
 }
