@@ -211,7 +211,7 @@ export function Layout({ children }: LayoutProps) {
         id="layout-sidebar"
         ref={sidebarRef}
         className={`
-          bg-slate-800 border-r border-slate-700 flex flex-col flex-shrink-0
+          bg-slate-800 border-r border-slate-700 flex flex-col flex-shrink-0 h-full relative
           ${isMobileMenuOpen ? 'fixed inset-y-0 left-0 z-40 w-72' : 'hidden md:flex'}
         `}
         style={{
@@ -220,7 +220,7 @@ export function Layout({ children }: LayoutProps) {
         }}
       >
         {/* Logo section - Desktop only */}
-        <div id="layout-logo-section" className="hidden md:flex p-4 border-b border-slate-700 items-center justify-between">
+        <div id="layout-logo-section" className="hidden md:flex p-4 border-b border-slate-700 items-center justify-between flex-shrink-0">
           <div className={`flex items-center gap-3 ${!showText ? 'justify-center w-full' : ''}`}>
             <TeborawIcon className="w-8 h-8 text-primary-500 flex-shrink-0" />
             {showText && (
@@ -259,7 +259,7 @@ export function Layout({ children }: LayoutProps) {
         </nav>
 
         {/* User section */}
-        <div id="layout-user-section" className="p-2 border-t border-slate-700">
+        <div id="layout-user-section" className="p-2 border-t border-slate-700 flex-shrink-0">
           <div id="layout-user-info" className={`flex items-center gap-3 px-3 py-2 ${!showText && 'md:justify-center'}`}>
             <div id="layout-user-avatar" className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0">
               <User className="w-4 h-4 text-slate-400" />

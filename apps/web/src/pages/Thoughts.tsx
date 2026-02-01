@@ -393,7 +393,7 @@ export function Thoughts() {
         </div>
       ) : (
         /* Desktop Layout with Allotment */
-        <div id="thoughts-page" className="h-[calc(100vh-4rem)] -m-8">
+        <div id="thoughts-page" className="h-screen -m-8">
           <Allotment>
             {/* Left Panel: Topic Tree + Thoughts List (20%) */}
             <Allotment.Pane preferredSize="20%" minSize={150} maxSize={400}>
