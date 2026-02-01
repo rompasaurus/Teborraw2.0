@@ -4,159 +4,96 @@ A comprehensive self-hosted personal activity tracking platform that captures br
 
 ---
 
-## Prerequisites & System Requirements
+## Table of Contents
 
-### Required Software
-
-Before running Teboraw 2.0, ensure you have the following installed:
-
-| Software | Minimum Version | Recommended Version | Installation |
-|----------|-----------------|---------------------|--------------|
-| **Node.js** | 18.12+ | 20.x LTS | Via nvm (see below) |
-| **pnpm** | 9.0+ | Latest | `npm install -g pnpm` |
-| **.NET SDK** | 8.0+ | 8.0 LTS | [dotnet.microsoft.com](https://dotnet.microsoft.com/download) |
-| **Docker** | 20.0+ | Latest | [docker.com](https://docker.com) |
-| **Docker Compose** | 2.0+ | Latest | Included with Docker Desktop |
-
-### Node.js Version Management (CRITICAL)
-
-**Teboraw 2.0 requires Node.js v18.12 or higher.** The pnpm package manager will not work with older versions.
-
-#### Check Your Current Node.js Version
-
-```bash
-node -v
-```
-
-If the output shows a version lower than `v18.12.0`, you **must** upgrade before proceeding.
-
-#### Installing/Upgrading Node.js with nvm (Recommended)
-
-**nvm (Node Version Manager)** is the recommended way to manage Node.js versions. It allows you to easily switch between versions without affecting your system.
-
-##### Step 1: Install nvm (if not already installed)
-
-```bash
-# macOS/Linux
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-
-# After installation, restart your terminal or run:
-source ~/.bashrc   # for bash
-source ~/.zshrc    # for zsh
-```
-
-##### Step 2: Load nvm in Your Current Shell
-
-```bash
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-```
-
-##### Step 3: Install and Use Node.js 20
-
-```bash
-# Install Node.js 20 (LTS)
-nvm install 20
-
-# Switch to Node.js 20
-nvm use 20
-
-# Set as default for all new terminals
-nvm alias default 20
-
-# Verify the version
-node -v  # Should show v20.x.x
-```
-
-##### Quick One-Liner (Copy & Paste)
-
-```bash
-source ~/.nvm/nvm.sh && nvm install 20 && nvm use 20 && nvm alias default 20
-```
-
-#### Alternative: Using Homebrew (macOS)
-
-```bash
-brew install node@20
-brew link node@20
-```
-
-#### Alternative: Direct Download
-
-Download the installer from [nodejs.org](https://nodejs.org/) and install version 20.x LTS.
-
-### Verifying All Prerequisites
-
-Run this command to check all prerequisites at once:
-
-```bash
-echo "Node.js: $(node -v)" && \
-echo "pnpm: $(pnpm -v 2>/dev/null || echo 'NOT INSTALLED')" && \
-echo "dotnet: $(dotnet --version)" && \
-echo "Docker: $(docker --version | cut -d' ' -f3 | tr -d ',')"
-```
-
-Expected output (versions may vary):
-```
-Node.js: v20.10.0
-pnpm: 9.1.0
-dotnet: 8.0.100
-Docker: 24.0.7
-```
-
-### Installing Missing Prerequisites
-
-#### pnpm
-```bash
-npm install -g pnpm
-```
-
-#### .NET 8 SDK
-- **macOS**: `brew install dotnet-sdk`
-- **Linux**: See [Microsoft's installation guide](https://learn.microsoft.com/en-us/dotnet/core/install/linux)
-- **Windows**: Download from [dotnet.microsoft.com](https://dotnet.microsoft.com/download)
-
-#### Docker
-- **macOS/Windows**: Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-- **Linux**: Follow the [official installation guide](https://docs.docker.com/engine/install/)
+- [Application Capabilities](#application-capabilities)
+- [Architecture Overview](#architecture-overview)
+- [Tech Stack](#tech-stack)
+- [Prerequisites](#prerequisites)
+- [Getting Started](#getting-started)
+- [Scripts Reference](#scripts-reference)
+- [Project Structure](#project-structure)
+- [Naming Conventions](#naming-conventions)
+- [Programming Rules](#programming-rules)
+- [API Reference](#api-reference)
+- [Docker Architecture](#docker-architecture)
+- [Configuration](#configuration)
+- [Troubleshooting](#troubleshooting)
 
 ---
 
-## Architecture
+## Application Capabilities
+
+### Core Features
+
+| Feature | Description | Platform |
+|---------|-------------|----------|
+| **Desktop Activity Tracking** | Captures active window focus, application usage, idle detection, and input activity | Desktop (Electron) |
+| **Screenshot Capture** | Periodic screenshots of active windows for activity context | Desktop (Electron) |
+| **Browser History Tracking** | Records page visits, searches, tab changes, and scroll sessions | Chrome Extension |
+| **GPS Location Tracking** | Continuous location monitoring with configurable intervals | Mobile (Android) |
+| **Ambient Audio Recording** | Records audio with local Whisper-based transcription | Mobile (Android) |
+| **Thoughts Journal** | Rich text journal with topic parsing (hashtags, mentions, URLs) | Web Dashboard |
+| **Timeline Dashboard** | Chronological view of all activities with filtering and search | Web Dashboard |
+| **Calendar View** | Day/week/month activity visualization | Web Dashboard |
+| **Statistics & Analytics** | Charts and graphs for activity patterns | Web Dashboard |
+
+### Authentication
+
+- Email/password registration and login
+- Google OAuth 2.0 integration
+- JWT access tokens (60 min expiry) + refresh tokens (7 day expiry)
+- Automatic token refresh on the frontend
+- See [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) for full details
+
+### Privacy & Security
+
+- **Self-hosted**: All data stays on your infrastructure
+- **Local transcription**: Audio processed locally via Whisper.cpp
+- **JWT authentication**: Cryptographically signed tokens
+- **Data isolation**: Users can only access their own data
+- **HTTPS**: Data encrypted in transit
+
+---
+
+## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         TEBORAW 2.0 ECOSYSTEM                        │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                       │
-│  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐                │
-│  │   Desktop   │   │   Chrome    │   │   Mobile    │                │
-│  │   Agent     │   │  Extension  │   │    App      │                │
-│  │  (Electron) │   │             │   │(React Native)│               │
-│  └──────┬──────┘   └──────┬──────┘   └──────┬──────┘                │
-│         │                 │                 │                        │
-│         └────────────┬────┴────────────────┘                        │
-│                      │                                               │
-│                      ▼                                               │
-│         ┌────────────────────────┐                                  │
-│         │    .NET 8 Web API      │                                  │
-│         │   (Self-Hosted Server) │                                  │
-│         └───────────┬────────────┘                                  │
-│                     │                                                │
-│                     ▼                                                │
-│         ┌────────────────────────┐                                  │
-│         │      PostgreSQL        │                                  │
-│         │   + Redis (caching)    │                                  │
-│         └────────────────────────┘                                  │
-│                     │                                                │
-│                     ▼                                                │
-│         ┌────────────────────────┐                                  │
-│         │   React TypeScript     │                                  │
-│         │     Dashboard          │                                  │
-│         └────────────────────────┘                                  │
-│                                                                       │
-└─────────────────────────────────────────────────────────────────────┘
++-----------------------------------------------------------------------+
+|                         TEBORAW 2.0 ECOSYSTEM                         |
++-----------------------------------------------------------------------+
+|                                                                       |
+|   +-----------+     +-----------+     +-----------+                   |
+|   |  Desktop  |     |  Chrome   |     |  Mobile   |                   |
+|   |   Agent   |     | Extension |     |    App    |                   |
+|   | (Electron)|     |           |     |(React     |                   |
+|   |           |     |           |     | Native)   |                   |
+|   +-----+-----+     +-----+-----+     +-----+-----+                   |
+|         |                 |                 |                         |
+|         +--------+--------+---------+-------+                         |
+|                  |                                                    |
+|                  v                                                    |
+|         +------------------+                                          |
+|         |  .NET 8 Web API  |                                          |
+|         | (Self-Hosted)    |                                          |
+|         +--------+---------+                                          |
+|                  |                                                    |
+|                  v                                                    |
+|         +------------------+                                          |
+|         |   PostgreSQL     |                                          |
+|         |   + Redis        |                                          |
+|         +------------------+                                          |
+|                  |                                                    |
+|                  v                                                    |
+|         +------------------+                                          |
+|         | React TypeScript |                                          |
+|         |    Dashboard     |                                          |
+|         +------------------+                                          |
+|                                                                       |
++-----------------------------------------------------------------------+
 ```
+
+---
 
 ## Tech Stack
 
@@ -164,40 +101,64 @@ npm install -g pnpm
 |-----------|------------|
 | Frontend Dashboard | React 18 + TypeScript + Vite + TailwindCSS |
 | Backend API | .NET 8 Web API (C#) |
-| Database | PostgreSQL 16 + Redis |
+| Database | PostgreSQL 16 + Redis 7 |
 | Desktop Agent | Electron + TypeScript |
 | Browser Extension | Chrome Extension (Manifest V3) |
 | Mobile App | React Native + TypeScript (Android) |
 | Audio Transcription | Whisper.cpp (local) |
-| Authentication | JWT + Refresh Tokens |
+| Authentication | JWT + Refresh Tokens + Google OAuth |
+| State Management | Zustand (frontend) |
+| API Client | Axios + React Query |
+
+---
+
+## Prerequisites
+
+### Required Software
+
+| Software | Minimum Version | Recommended | Installation |
+|----------|-----------------|-------------|--------------|
+| **Node.js** | 20.0+ | 20.x LTS | Via nvm |
+| **pnpm** | 9.0+ | 9.15+ | `npm install -g pnpm` |
+| **.NET SDK** | 8.0+ | 8.0 LTS | [dotnet.microsoft.com](https://dotnet.microsoft.com/download) |
+| **Docker** | 20.0+ | Latest | [docker.com](https://docker.com) |
+| **Python** | 3.8+ | 3.10+ | System or pyenv |
+
+### Quick Prerequisite Check
+
+```bash
+echo "Node.js: $(node -v)" && \
+echo "pnpm: $(pnpm -v 2>/dev/null || echo 'NOT INSTALLED')" && \
+echo "dotnet: $(dotnet --version)" && \
+echo "Docker: $(docker --version | cut -d' ' -f3 | tr -d ',')" && \
+echo "Python: $(python3 --version)"
+```
+
+### Installing Node.js via nvm
+
+```bash
+# Install nvm
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+
+# Load nvm and install Node.js 20
+source ~/.nvm/nvm.sh && nvm install 20 && nvm use 20 && nvm alias default 20
+
+# Verify
+node -v  # Should show v20.x.x
+```
+
+---
 
 ## Getting Started
 
-### Prerequisites Checklist
-
-Before proceeding, ensure you have completed the **Prerequisites & System Requirements** section above.
-
-**Quick Check:**
-```bash
-# Run this to verify your setup
-node -v  # Must be v18.12.0 or higher!
-```
-
-If your Node.js version is too low, **STOP** and follow the nvm instructions above.
-
 ### Quick Start (Automated)
 
-The easiest way to get started is using the setup script:
-
 ```bash
-# First, ensure Node.js 20 is active
+# 1. Ensure Node.js 20 is active
 source ~/.nvm/nvm.sh && nvm use 20
 
-# Make scripts executable
-chmod +x scripts/setup.sh scripts/run.sh
-
-# Run the setup script
-./scripts/setup.sh
+# 2. Run the setup script
+python3 scripts/setup.py
 ```
 
 The setup script will:
@@ -210,295 +171,448 @@ The setup script will:
 
 ### Quick Start (Manual)
 
-If you prefer to run steps manually:
-
-1. **Ensure Node.js 20 is active:**
-   ```bash
-   source ~/.nvm/nvm.sh && nvm use 20
-   node -v  # Verify: should show v20.x.x
-   ```
-
-2. **Start the database services:**
-   ```bash
-   docker compose up -d
-   ```
-
-3. **Install dependencies:**
-   ```bash
-   pnpm install
-   ```
-
-4. **Build the shared types package:**
-   ```bash
-   pnpm --filter @teboraw/shared-types build
-   ```
-
-5. **Start the API:**
-   ```bash
-   cd apps/api
-   dotnet run --project Teboraw.Api
-   ```
-   API will be available at `http://localhost:5000`
-
-6. **Start the web dashboard (in a new terminal):**
-   ```bash
-   pnpm dev:web
-   ```
-   Dashboard will be available at `http://localhost:5173`
-
-### Running the Application
-
-After setup is complete, use the run script:
-
 ```bash
-./scripts/run.sh           # Start all services (API + Web + Docker)
-./scripts/run.sh api       # Start only the API
-./scripts/run.sh web       # Start only the Web Dashboard
-./scripts/run.sh desktop   # Start the Electron Desktop Agent
-./scripts/run.sh docker    # Start only Docker services
-./scripts/run.sh stop      # Stop all Docker services
-```
+# 1. Start database services
+docker compose up -d
 
-### Running Components
+# 2. Install dependencies
+pnpm install
 
-#### Web Dashboard
-```bash
+# 3. Build shared types
+pnpm --filter @teboraw/shared-types build
+
+# 4. Start the API (terminal 1)
+cd apps/api && dotnet run --project Teboraw.Api
+
+# 5. Start the web dashboard (terminal 2)
 pnpm dev:web
 ```
 
-#### Desktop Agent (Electron)
+### Access Points
+
+| Service | URL |
+|---------|-----|
+| Web Dashboard | http://localhost:5173 |
+| API | http://localhost:5000 |
+| API Swagger | http://localhost:5000/swagger |
+| pgAdmin | http://localhost:5050 |
+
+---
+
+## Scripts Reference
+
+### Root Package Scripts
+
+Run these from the project root with `pnpm <script>`:
+
+| Script | Command | Description |
+|--------|---------|-------------|
+| `setup` | `python scripts/setup.py` | Full project setup |
+| `start` | `python scripts/run.py` | Start all services |
+| `start:all` | `python scripts/run.py all` | Start API + Web + Docker |
+| `start:api` | `python scripts/run.py api` | Start only the .NET API |
+| `start:web` | `python scripts/run.py web` | Start only the web dashboard |
+| `start:desktop` | `python scripts/start-desktop.py` | Start Electron desktop agent |
+| `dev:web` | `pnpm --filter @teboraw/web dev` | Web dev server (Vite) |
+| `dev:desktop` | `pnpm --filter @teboraw/desktop dev` | Desktop dev mode |
+| `dev:mobile` | `pnpm --filter @teboraw/mobile start` | Mobile Metro bundler |
+| `dev:api` | `dotnet watch run --project apps/api/Teboraw.Api` | API with hot reload |
+| `build:web` | `pnpm --filter @teboraw/web build` | Production web build |
+| `build:desktop` | `pnpm --filter @teboraw/desktop build` | Desktop build |
+| `build:desktop:package` | `python scripts/start-desktop.py package` | Package desktop app |
+| `build:api` | `dotnet build apps/api/Teboraw.sln` | Build .NET API |
+| `docker:up` | `docker compose up -d` | Start Docker services |
+| `docker:down` | `docker compose down` | Stop Docker services |
+| `docker:stop` | `python scripts/run.py stop` | Stop all services |
+| `deploy` | `python scripts/deploy.py deploy` | Full deployment |
+| `deploy:build` | `python scripts/deploy.py build` | Build for deployment |
+| `deploy:push` | `python scripts/deploy.py push` | Push to registry |
+| `deploy:status` | `python scripts/deploy.py status` | Check deployment status |
+| `deploy:logs` | `python scripts/deploy.py logs` | View deployment logs |
+| `deploy:migrate` | `python scripts/deploy.py migrate` | Run database migrations |
+| `deploy:backup` | `python scripts/deploy.py backup` | Backup database |
+| `clean` | `pnpm -r clean` | Clean all workspaces |
+
+### Shell Scripts
+
 ```bash
-cd apps/desktop
-pnpm install
-pnpm dev
+# Setup script (alternative)
+./scripts/setup.sh
+
+# Run script with options
+./scripts/run.sh           # Start all services
+./scripts/run.sh api       # Start only API
+./scripts/run.sh web       # Start only Web
+./scripts/run.sh desktop   # Start Electron
+./scripts/run.sh docker    # Start Docker only
+./scripts/run.sh stop      # Stop all services
 ```
 
-#### Chrome Extension
-1. Open Chrome and go to `chrome://extensions`
-2. Enable "Developer mode"
-3. Click "Load unpacked"
-4. Select the `apps/extension` folder
-
-#### Mobile App (Android)
-```bash
-cd apps/mobile
-pnpm install
-pnpm android
-```
+---
 
 ## Project Structure
 
 ```
 Teboraw 2.0/
-├── apps/
-│   ├── web/           # React Dashboard
-│   ├── api/           # .NET 8 Web API
-│   ├── desktop/       # Electron Desktop Agent
-│   ├── extension/     # Chrome Extension
-│   └── mobile/        # React Native Android App
-├── packages/
-│   └── shared-types/  # Shared TypeScript types
-├── docker-compose.yml
-└── package.json
+|
++-- apps/                          # Application workspaces
+|   |
+|   +-- api/                       # .NET 8 Backend API
+|   |   +-- Teboraw.Api/           # API project (controllers, services)
+|   |   |   +-- Controllers/       # REST API controllers
+|   |   |   +-- DTOs/              # Data Transfer Objects
+|   |   |   +-- Services/          # Business logic services
+|   |   |   +-- Program.cs         # Application entry point
+|   |   |   +-- appsettings.json   # Configuration
+|   |   |
+|   |   +-- Teboraw.Core/          # Domain layer (entities, interfaces)
+|   |   |   +-- Entities/          # Domain entities
+|   |   |   +-- Interfaces/        # Repository interfaces
+|   |   |
+|   |   +-- Teboraw.Infrastructure/  # Data access layer
+|   |       +-- Data/              # DbContext
+|   |       +-- Migrations/        # EF Core migrations
+|   |       +-- Repositories/      # Repository implementations
+|   |
+|   +-- web/                       # React Web Dashboard
+|   |   +-- src/
+|   |       +-- components/        # Reusable UI components
+|   |       +-- pages/             # Page components (routes)
+|   |       +-- hooks/             # Custom React hooks
+|   |       +-- store/             # Zustand state stores
+|   |       +-- services/          # API client services
+|   |       +-- types/             # TypeScript type definitions
+|   |       +-- App.tsx            # Root component with routing
+|   |       +-- main.tsx           # Entry point
+|   |
+|   +-- desktop/                   # Electron Desktop Agent
+|   |   +-- src/
+|   |       +-- main/              # Main process code
+|   |       +-- preload/           # Preload scripts
+|   |       +-- renderer/          # Renderer process (UI)
+|   |
+|   +-- extension/                 # Chrome Extension
+|   |   +-- src/
+|   |       +-- background/        # Service worker
+|   |       +-- content/           # Content scripts
+|   |       +-- popup/             # Extension popup UI
+|   |
+|   +-- mobile/                    # React Native Mobile App
+|       +-- src/
+|           +-- screens/           # Screen components
+|           +-- services/          # API and native services
+|           +-- navigation/        # Navigation configuration
+|
++-- packages/                      # Shared packages
+|   +-- shared-types/              # Shared TypeScript types
+|
++-- scripts/                       # Build and deployment scripts
+|   +-- setup.py                   # Project setup script
+|   +-- run.py                     # Run services script
+|   +-- deploy.py                  # Deployment script
+|   +-- start-desktop.py           # Desktop agent launcher
+|
++-- docs/                          # Documentation
+|   +-- AUTHENTICATION.md          # Auth system documentation
+|
++-- docker-compose.yml             # Docker services configuration
++-- package.json                   # Root workspace configuration
++-- pnpm-workspace.yaml            # pnpm workspace definition
++-- .env                           # Environment variables (not in git)
 ```
 
-## Features
+---
 
-- **Desktop Activity Tracking**: Window focus, screenshots, idle detection
-- **Browser Tracking**: Page visits, searches, tab activity
-- **Mobile Tracking**: GPS location, ambient audio recording
-- **Audio Transcription**: Local Whisper-based transcription
-- **Thoughts Journal**: Capture and organize ideas
-- **Timeline Dashboard**: Chronological view of all activities
-- **Self-Hosted**: All data stays on your infrastructure
+## Naming Conventions
 
-## API Endpoints
+### General Rules
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/auth/register` | POST | Register new user |
-| `/api/auth/login` | POST | Login |
-| `/api/auth/refresh` | POST | Refresh token |
-| `/api/activities` | GET | List activities |
-| `/api/activities` | POST | Create activity |
-| `/api/activities/sync` | POST | Sync activities from clients |
-| `/api/thoughts` | GET/POST | Manage thoughts |
+| Element | Convention | Example |
+|---------|------------|---------|
+| Files (TypeScript) | PascalCase for components, camelCase for utilities | `Dashboard.tsx`, `authStore.ts` |
+| Files (C#) | PascalCase | `AuthService.cs`, `UserDto.cs` |
+| Folders | kebab-case or lowercase | `components/`, `shared-types/` |
+| React Components | PascalCase | `ThoughtsToolbar`, `Layout` |
+| React Hooks | camelCase with `use` prefix | `useTopicParser`, `useAuthStore` |
+| Zustand Stores | camelCase with `Store` suffix | `authStore`, `thoughtsEditorStore` |
+| TypeScript Interfaces | PascalCase with `I` prefix (optional) | `User`, `AuthState`, `IRepository` |
+| TypeScript Types | PascalCase | `ActivityType`, `LoginRequest` |
+| C# Classes | PascalCase | `AuthService`, `Activity` |
+| C# Interfaces | PascalCase with `I` prefix | `IRepository`, `IUnitOfWork` |
+| C# Enums | PascalCase | `ActivityType`, `ActivitySource` |
+| Database Tables | PascalCase plural | `Users`, `Activities`, `RefreshTokens` |
+| API Endpoints | kebab-case or lowercase | `/auth/login`, `/activities/sync` |
+| Environment Variables | SCREAMING_SNAKE_CASE | `JWT_SECRET_KEY`, `POSTGRES_PASSWORD` |
+
+### Frontend Naming
+
+```typescript
+// Components - PascalCase
+export function ThoughtsToolbar() { }
+
+// Hooks - camelCase with use prefix
+export function useTopicParser() { }
+
+// Stores - camelCase
+export const useAuthStore = create<AuthState>()
+
+// Types - PascalCase
+interface User {
+  id: string
+  email: string
+}
+
+// Constants - SCREAMING_SNAKE_CASE or camelCase
+const API_BASE_URL = '/api'
+const defaultSettings = { }
+```
+
+### Backend Naming (.NET)
+
+```csharp
+// Namespaces - PascalCase matching folder structure
+namespace Teboraw.Api.Controllers;
+namespace Teboraw.Core.Entities;
+
+// Classes - PascalCase
+public class AuthService : IAuthService { }
+
+// Interfaces - PascalCase with I prefix
+public interface IAuthService { }
+
+// Methods - PascalCase
+public async Task<AuthResponse?> LoginAsync(LoginRequest request)
+
+// Properties - PascalCase
+public string Email { get; set; }
+
+// Private fields - camelCase with underscore prefix
+private readonly IUnitOfWork _unitOfWork;
+
+// DTOs - PascalCase with Dto/Request/Response suffix
+public record LoginRequest(string Email, string Password);
+public record AuthResponse(string AccessToken, string RefreshToken, ...);
+```
+
+---
+
+## Programming Rules
+
+### General Principles
+
+1. **Type Safety**: Always use TypeScript strict mode on frontend, enable nullable reference types in C#
+2. **No Magic Strings**: Use enums or constants for repeated values
+3. **Single Responsibility**: Each function/class should do one thing well
+4. **DRY (Don't Repeat Yourself)**: Extract common logic into shared utilities
+5. **Error Handling**: Always handle errors gracefully, never swallow exceptions silently
+
+### Frontend Rules (React/TypeScript)
+
+```typescript
+// 1. Use functional components with hooks
+function MyComponent() {
+  const [state, setState] = useState()
+  return <div>{state}</div>
+}
+
+// 2. Use Zustand for global state
+const useMyStore = create<MyState>()((set) => ({
+  value: null,
+  setValue: (v) => set({ value: v }),
+}))
+
+// 3. Use React Query for server state
+const { data, isLoading } = useQuery({
+  queryKey: ['activities'],
+  queryFn: () => api.getActivities(),
+})
+
+// 4. Always type props and state
+interface Props {
+  title: string
+  onSubmit: (data: FormData) => void
+}
+
+// 5. Use path aliases for imports
+import { useAuthStore } from '@/store/authStore'  // Not '../../../store/authStore'
+```
+
+### Backend Rules (.NET/C#)
+
+```csharp
+// 1. Use async/await for I/O operations
+public async Task<User?> GetUserAsync(Guid id)
+{
+    return await _unitOfWork.Users.GetByIdAsync(id);
+}
+
+// 2. Use dependency injection
+public class AuthService
+{
+    private readonly IUnitOfWork _unitOfWork;
+
+    public AuthService(IUnitOfWork unitOfWork)
+    {
+        _unitOfWork = unitOfWork;
+    }
+}
+
+// 3. Use records for DTOs
+public record UserDto(Guid Id, string Email, string DisplayName);
+
+// 4. Always validate input at controller level
+[HttpPost]
+public async Task<IActionResult> Login([FromBody] LoginRequest request)
+{
+    if (string.IsNullOrEmpty(request.Email))
+        return BadRequest("Email is required");
+}
+
+// 5. Extract user ID from JWT claims, never from request
+private Guid GetUserId()
+{
+    var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    return Guid.Parse(claim!);
+}
+
+// 6. Use Unit of Work pattern for transactions
+await _unitOfWork.Users.AddAsync(user);
+await _unitOfWork.SaveChangesAsync();
+```
+
+### API Design Rules
+
+1. **RESTful Endpoints**: Use HTTP verbs correctly (GET, POST, PUT, DELETE)
+2. **Consistent Response Format**: Always return DTOs, never entities
+3. **Proper Status Codes**: 200 OK, 201 Created, 400 Bad Request, 401 Unauthorized, 404 Not Found
+4. **Authentication**: Protect all endpoints except login/register/refresh
+5. **Data Filtering**: Always filter by authenticated user ID
+
+### Git Commit Rules
+
+```bash
+# Commit message format
+<type>: <short description>
+
+# Types
+feat:     New feature
+fix:      Bug fix
+docs:     Documentation only
+style:    Formatting, no code change
+refactor: Code restructuring
+test:     Adding tests
+chore:    Maintenance tasks
+
+# Examples
+feat: add Google OAuth login
+fix: resolve token refresh race condition
+docs: update authentication documentation
+```
+
+---
+
+## API Reference
+
+### Authentication Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/auth/register` | No | Create new account |
+| POST | `/auth/login` | No | Email/password login |
+| POST | `/auth/google` | No | Google OAuth login |
+| POST | `/auth/refresh` | No | Refresh access token |
+| GET | `/auth/me` | Yes | Get current user |
+| POST | `/auth/logout` | Yes | Revoke refresh token |
+
+### Activity Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/activities` | Yes | List activities (with filters) |
+| POST | `/activities` | Yes | Create single activity |
+| POST | `/activities/sync` | Yes | Batch sync from clients |
+| DELETE | `/activities/{id}` | Yes | Delete activity |
+
+### Thought Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/thoughts` | Yes | List thoughts |
+| POST | `/thoughts` | Yes | Create thought |
+| PUT | `/thoughts/{id}` | Yes | Update thought |
+| DELETE | `/thoughts/{id}` | Yes | Delete thought |
+
+---
 
 ## Docker Architecture
 
-Teboraw uses Docker Compose to orchestrate all backend services. The stack runs on a dedicated bridge network (`teboraw-network`) allowing containers to communicate using service names.
-
-### Container Overview
+### Services
 
 | Container | Image | Port | Purpose |
 |-----------|-------|------|---------|
 | `teboraw-postgres` | postgres:16-alpine | 5432 | Primary database |
 | `teboraw-redis` | redis:7-alpine | 6379 | Caching layer |
-| `teboraw-api` | Custom (.NET 8) | 5000 | Backend API |
-| `teboraw-web` | Custom (nginx) | 5173 | Web dashboard |
 | `teboraw-pgadmin` | dpage/pgadmin4 | 5050 | Database admin UI |
-
-### Container Details
-
-#### PostgreSQL (`teboraw-postgres`)
-The primary data store for all application data.
-
-- **Image:** `postgres:16-alpine`
-- **Port:** `5432:5432`
-- **Volume:** `postgres_data:/var/lib/postgresql/data`
-- **Credentials:** `teboraw` / `teboraw_dev` (configurable via env vars)
-- **Health Check:** `pg_isready` command every 10s
-
-**Data Stored:**
-- User accounts and authentication
-- Activities (window focus, page visits, screenshots, etc.)
-- Thoughts and journal entries
-- Device registrations
-
-#### Redis (`teboraw-redis`)
-In-memory cache for performance optimization.
-
-- **Image:** `redis:7-alpine`
-- **Port:** `6379:6379`
-- **Volume:** `redis_data:/data`
-- **Health Check:** `redis-cli ping` every 10s
-
-**Intended Use:**
-- Activity summary caching
-- Rate limiting
-- Session storage
-- Real-time pub/sub (future)
-
-> **Note:** Redis is provisioned but not yet actively used in the codebase. The infrastructure is ready for future caching implementations.
-
-#### API (`teboraw-api`)
-The .NET 8 backend that handles all business logic.
-
-- **Build Context:** `./apps/api`
-- **Port:** `5000:5000`
-- **Health Check:** `curl http://localhost:5000/health` every 30s
-- **Depends On:** postgres (healthy), redis (healthy)
-
-**Responsibilities:**
-- REST API endpoints for all clients
-- JWT authentication and token refresh
-- Activity ingestion and storage
-- Database migrations (EF Core)
-- Swagger documentation at `/swagger`
-
-**Environment Variables:**
-- `ConnectionStrings__DefaultConnection` - PostgreSQL connection string
-- `Jwt__SecretKey` - JWT signing key
-- `Redis__Host` / `Redis__Port` - Redis connection
-
-#### Web Dashboard (`teboraw-web`)
-The React frontend served via nginx.
-
-- **Build Context:** `./apps/web`
-- **Port:** `5173:80` (nginx serves on port 80 internally)
-- **Health Check:** wget spider test every 30s
-- **Depends On:** api
-
-**Features:**
-- Activity timeline with filtering and search
-- Thoughts journal management
-- Statistics and visualizations
-- Dark theme UI
-
-**Build Args:**
-- `VITE_API_URL=/api` - API endpoint configuration
-
-#### pgAdmin (`teboraw-pgadmin`)
-Web-based database administration interface (optional, for development).
-
-- **Image:** `dpage/pgadmin4:latest`
-- **Port:** `5050:80`
-- **Volume:** `pgadmin_data:/var/lib/pgadmin`
-- **Credentials:** `admin@example.com` / `admin`
-- **Depends On:** postgres
-
-**Use Cases:**
-- View and edit database tables
-- Run SQL queries
-- Export/import data
-- Monitor database performance
-
-### Persistent Volumes
-
-| Volume | Purpose |
-|--------|---------|
-| `postgres_data` | PostgreSQL database files |
-| `redis_data` | Redis persistence (RDB/AOF) |
-| `pgadmin_data` | pgAdmin configuration and saved servers |
-
-### Network
-
-All containers run on `teboraw-network` (bridge driver). Containers communicate using service names:
-- API connects to `postgres:5432` and `redis:6379`
-- Web proxies API calls to `api:5000`
 
 ### Common Commands
 
 ```bash
-# Start all services
+# Start services
 docker compose up -d
 
-# Start with rebuild
-docker compose up -d --build
-
 # View logs
-docker compose logs -f              # All services
-docker compose logs -f api          # API only
+docker compose logs -f
 
-# Stop all services
+# Stop services
 docker compose down
 
-# Stop and remove volumes (WARNING: deletes data)
+# Reset database (WARNING: deletes data)
 docker compose down -v
-
-# Restart a single service
-docker compose restart api
-
-# Check service health
-docker compose ps
 ```
 
-### Environment Variables
+### Volumes
 
-Create a `.env` file in the project root to customize:
-
-```env
-POSTGRES_USER=teboraw
-POSTGRES_PASSWORD=your_secure_password
-POSTGRES_DB=teboraw
-JWT_SECRET_KEY=your_32_char_minimum_secret_key
-```
+| Volume | Purpose |
+|--------|---------|
+| `postgres_data` | PostgreSQL data persistence |
+| `redis_data` | Redis data persistence |
+| `pgadmin_data` | pgAdmin configuration |
 
 ---
 
 ## Configuration
 
+### Environment Variables (.env)
+
+```env
+# Database
+POSTGRES_USER=teboraw
+POSTGRES_PASSWORD=your_secure_password
+POSTGRES_DB=teboraw
+
+# JWT
+JWT_SECRET_KEY=your_32_char_minimum_secret_key
+
+# Google OAuth (optional)
+GOOGLE_CLIENT_ID=your_google_client_id
+```
+
 ### API Configuration (appsettings.json)
+
 ```json
 {
   "ConnectionStrings": {
     "DefaultConnection": "Host=localhost;Port=5432;Database=teboraw;Username=teboraw;Password=teboraw_dev"
   },
   "Jwt": {
-    "SecretKey": "YOUR_SECRET_KEY_MIN_32_CHARS",
+    "SecretKey": "configured-via-env",
     "Issuer": "Teboraw",
-    "Audience": "Teboraw"
+    "Audience": "Teboraw",
+    "AccessTokenExpiryMinutes": 60,
+    "RefreshTokenExpiryDays": 7
   }
 }
 ```
-
-## Privacy & Security
-
-- All data is self-hosted on your infrastructure
-- Audio is transcribed locally using Whisper
-- JWT-based authentication with refresh tokens
-- Data encrypted in transit (HTTPS)
-- Granular tracking controls per feature
 
 ---
 
@@ -508,59 +622,19 @@ JWT_SECRET_KEY=your_32_char_minimum_secret_key
 
 #### "This version of pnpm requires at least Node.js v18.12"
 
-**Cause:** Your active Node.js version is too old.
-
-**Solution:**
 ```bash
-# Load nvm
-source ~/.nvm/nvm.sh
-
-# Install and use Node.js 20
-nvm install 20
-nvm use 20
-nvm alias default 20
-
-# Verify
-node -v  # Should show v20.x.x
-
-# Now retry
-./scripts/setup.sh
+source ~/.nvm/nvm.sh && nvm use 20
 ```
-
-**Note:** Each new terminal session may need `nvm use 20` unless you set the default alias.
 
 #### "nvm: command not found"
 
-**Cause:** nvm is not installed or not loaded in your shell.
-
-**Solution:**
 ```bash
-# Check if nvm is installed
-ls -la ~/.nvm/nvm.sh
-
-# If not installed, install it:
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-
-# Load nvm (add this to your ~/.bashrc or ~/.zshrc for persistence)
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 ```
 
-#### "docker-compose: command not found"
-
-**Cause:** You're using an older Docker installation. Modern Docker uses `docker compose` (with a space) instead of `docker-compose` (with a hyphen).
-
-**Solution:** The scripts in this project already use `docker compose`. If you're running commands manually, use:
-```bash
-docker compose up -d     # Instead of: docker-compose up -d
-docker compose down      # Instead of: docker-compose down
-```
-
 #### Docker containers won't start
 
-**Cause:** Docker daemon might not be running, or ports might be in use.
-
-**Solution:**
 ```bash
 # Check if Docker is running
 docker info
@@ -568,22 +642,13 @@ docker info
 # Check for port conflicts
 lsof -i :5432  # PostgreSQL
 lsof -i :6379  # Redis
-lsof -i :5050  # pgAdmin
-
-# If ports are in use, stop conflicting services or modify docker-compose.yml
 ```
 
-#### "Cannot connect to PostgreSQL"
+#### Cannot connect to PostgreSQL
 
-**Cause:** The database container might not be ready yet.
-
-**Solution:**
 ```bash
 # Check container status
 docker compose ps
-
-# Check logs
-docker compose logs postgres
 
 # Wait for PostgreSQL to be ready
 docker exec teboraw-postgres pg_isready -U teboraw -d teboraw
@@ -591,49 +656,21 @@ docker exec teboraw-postgres pg_isready -U teboraw -d teboraw
 
 #### .NET build errors
 
-**Cause:** Missing .NET SDK or wrong version.
-
-**Solution:**
 ```bash
-# Check .NET version
+# Verify .NET version
 dotnet --version  # Should be 8.x.x
 
-# If missing, install .NET 8 SDK
-# macOS:
-brew install dotnet-sdk
-
-# Then restore packages
-cd apps/api
-dotnet restore
+# Restore packages
+cd apps/api && dotnet restore
 ```
-
-#### React Native / Mobile build issues
-
-**Cause:** Missing Android SDK or incorrect setup.
-
-**Solution:**
-1. Install Android Studio
-2. Install Android SDK via Android Studio's SDK Manager
-3. Set environment variables:
-   ```bash
-   export ANDROID_HOME=$HOME/Library/Android/sdk
-   export PATH=$PATH:$ANDROID_HOME/emulator
-   export PATH=$PATH:$ANDROID_HOME/tools
-   export PATH=$PATH:$ANDROID_HOME/tools/bin
-   export PATH=$PATH:$ANDROID_HOME/platform-tools
-   ```
-4. Create an Android emulator or connect a physical device
-5. Run: `cd apps/mobile && pnpm android`
 
 ### Getting Help
 
-If you encounter issues not covered here:
-
-1. Check the console output for specific error messages
-2. Ensure all prerequisites are correctly installed
-3. Try running `./scripts/setup.sh` again after fixing any issues
+1. Check console output for specific error messages
+2. Verify all prerequisites are installed
+3. Try `python3 scripts/setup.py` to re-run setup
 4. Check Docker logs: `docker compose logs`
-5. Check API logs when running: `cd apps/api && dotnet run --project Teboraw.Api`
+5. Check API logs in the terminal running the API
 
 ---
 
