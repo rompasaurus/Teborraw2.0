@@ -8,6 +8,7 @@ Usage:
     python setup.py              # Monitor and manage services (default)
     python setup.py --docker     # Docker deployment setup
     python setup.py --local      # Local development setup
+    python setup.py --local-web  # Docker services + local web frontend
 """
 
 import os
@@ -908,6 +909,7 @@ def print_monitor_menu():
     print(f"    {Colors.GREEN}[6]{Colors.NC} Start all services")
     print(f"    {Colors.GREEN}[7]{Colors.NC} Install Chrome extension")
     print(f"    {Colors.GREEN}[8]{Colors.NC} Run database migration")
+    print(f"    {Colors.GREEN}[9]{Colors.NC} Run web frontend locally")
     print(f"    {Colors.GREEN}[q]{Colors.NC} Quit monitor")
     print()
 
@@ -1325,7 +1327,7 @@ def monitor_services(project_root: str):
             print()
             print_success("Monitor closed")
             break
-        elif choice in ['1', '2', '3', '4', '5', '6', '7', '8']:
+        elif choice in ['1', '2', '3', '4', '5', '6', '7', '8', '9']:
             print()
             containers = get_container_stats(project_root)
 
@@ -1353,11 +1355,116 @@ def monitor_services(project_root: str):
                 install_chrome_extension(project_root)
             elif choice == '8':
                 run_database_migration(project_root)
+            elif choice == '9':
+                # Stop web container if running, then run locally
+                print_step("Stopping web Docker container...")
+                cmd = docker_compose_cmd() + ['stop', 'web']
+                run_command(cmd, cwd=project_root)
+                run_web_locally(project_root)
 
         # Refresh screen
         containers = get_container_stats(project_root)
         timestamp = time.strftime("%H:%M:%S")
         draw_monitor_screen(project_root, containers, timestamp)
+
+
+def run_web_locally(project_root: str):
+    """Run the web frontend locally using pnpm"""
+    print_step("Starting web frontend locally...")
+    print(f"  {Colors.CYAN}Running: pnpm dev:web{Colors.NC}")
+    print(f"  {Colors.YELLOW}Press Ctrl+C to stop{Colors.NC}")
+    print()
+
+    try:
+        subprocess.run(['pnpm', 'dev:web'], cwd=project_root, shell=platform.system() == 'Windows')
+    except KeyboardInterrupt:
+        print()
+        print_success("Web frontend stopped")
+
+
+def print_local_web_completion_message():
+    """Print completion message for local-web mode"""
+    print_header("Setup Complete!")
+
+    python_cmd = 'python' if platform.system() == 'Windows' else 'python3'
+
+    print("Docker services are running. Web frontend will start locally.")
+    print()
+    print("Services:")
+    print(f"  {Colors.BLUE}API (Docker):{Colors.NC}   http://localhost:5000")
+    print(f"  {Colors.BLUE}Swagger:{Colors.NC}        http://localhost:5000/swagger")
+    print(f"  {Colors.BLUE}Dashboard:{Colors.NC}      http://localhost:5173 (local)")
+    print(f"  {Colors.BLUE}pgAdmin:{Colors.NC}        http://localhost:5050 (admin@teboraw.local / admin)")
+    print()
+    print("To restart the web frontend later:")
+    print(f"  {Colors.GREEN}pnpm dev:web{Colors.NC}")
+    print()
+
+
+def setup_local_web(project_root: str):
+    """Setup with Docker services but local web frontend"""
+    print_header("Docker + Local Web Setup")
+
+    # Check Docker prerequisites
+    if not check_docker_prerequisites():
+        print()
+        print_error("Docker prerequisites check failed.")
+        sys.exit(1)
+
+    # Check Node.js and pnpm for local web
+    print_step("Checking Node.js and pnpm for local web...")
+    if not check_command_exists('node'):
+        print_error("Node.js is not installed. Please install Node.js 18+")
+        sys.exit(1)
+    if not check_command_exists('pnpm'):
+        print_error("pnpm is not installed. Run: npm install -g pnpm")
+        sys.exit(1)
+
+    print_success("Node.js and pnpm available")
+    print()
+
+    # Build Docker images (excluding web)
+    print_step("Building Docker images (excluding web)...")
+    cmd = docker_compose_cmd() + ['build', 'postgres', 'redis', 'api', 'pgadmin']
+    result = run_command(cmd, cwd=project_root)
+    if not result or result.returncode != 0:
+        print_warning("Some images may not have built, continuing...")
+
+    # Start infrastructure services
+    if not start_docker_services(project_root, ['postgres', 'redis']):
+        sys.exit(1)
+
+    # Wait for PostgreSQL
+    time.sleep(3)
+    if not wait_for_postgres(project_root):
+        print_warning("Continuing without confirming PostgreSQL readiness...")
+
+    # Start API and pgAdmin in Docker
+    if not start_docker_services(project_root, ['api', 'pgadmin']):
+        sys.exit(1)
+
+    # Wait for API to be healthy
+    time.sleep(5)
+    wait_for_api()
+
+    # Install pnpm dependencies for local web
+    print_step("Installing pnpm dependencies...")
+    result = run_command(['pnpm', 'install'], cwd=project_root)
+    if not result or result.returncode != 0:
+        print_warning("pnpm install had issues, continuing...")
+
+    # Build shared types
+    if not build_shared_types(project_root):
+        print_warning("Failed to build shared types, continuing...")
+
+    # Install Chrome extension
+    install_chrome_extension(project_root)
+
+    # Print completion message
+    print_local_web_completion_message()
+
+    # Run web locally
+    run_web_locally(project_root)
 
 
 def setup_local(project_root: str):
@@ -1419,12 +1526,15 @@ Examples:
   python setup.py              # Monitor and manage services (default)
   python setup.py --docker     # Docker deployment setup
   python setup.py --local      # Local development setup
+  python setup.py --local-web  # Docker services + local web frontend
         '''
     )
     parser.add_argument('--docker', action='store_true',
                         help='Setup for Docker deployment')
     parser.add_argument('--local', action='store_true',
                         help='Setup for local development')
+    parser.add_argument('--local-web', action='store_true',
+                        help='Docker services + local web frontend')
     args = parser.parse_args()
 
     # Determine mode (monitor is default)
@@ -1432,6 +1542,8 @@ Examples:
         deploy_mode = 'docker'
     elif args.local:
         deploy_mode = 'local'
+    elif args.local_web:
+        deploy_mode = 'local-web'
     else:
         deploy_mode = 'monitor'
 
@@ -1448,6 +1560,8 @@ Examples:
         monitor_services(project_root)
     elif deploy_mode == 'docker':
         setup_docker(project_root)
+    elif deploy_mode == 'local-web':
+        setup_local_web(project_root)
     else:
         setup_local(project_root)
 
