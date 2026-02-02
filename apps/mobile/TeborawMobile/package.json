@@ -19,6 +19,7 @@
     "react-native-permissions": "^4.1.5",
     "react-native-safe-area-context": "^5.5.2",
     "react-native-screens": "^4.20.0",
+    "react-native-sound": "^0.13.0",
     "zustand": "^5.0.11"
   },
   "devDependencies": {

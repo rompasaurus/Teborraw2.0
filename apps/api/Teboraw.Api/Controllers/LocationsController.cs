@@ -34,6 +34,13 @@ public class LocationsController : ControllerBase
             : dt.ToUniversalTime();
     }
 
+    private static DateTime ToEndOfDayUtc(DateTime dt)
+    {
+        // Convert to end of day (23:59:59.999) to include the entire day
+        var utc = ToUtc(dt);
+        return utc.Date.AddDays(1).AddMilliseconds(-1);
+    }
+
     [HttpGet]
     public async Task<ActionResult<PaginatedResponse<LocationWithDurationDto>>> GetLocations([FromQuery] LocationQueryRequest filter)
     {
@@ -51,7 +58,7 @@ public class LocationsController : ControllerBase
 
         if (filter.EndDate.HasValue)
         {
-            var endUtc = ToUtc(filter.EndDate.Value);
+            var endUtc = ToEndOfDayUtc(filter.EndDate.Value);
             query = query.Where(l => l.RecordedAt <= endUtc);
         }
 
@@ -134,7 +141,7 @@ public class LocationsController : ControllerBase
         }
         if (endDate.HasValue)
         {
-            var endUtc = ToUtc(endDate.Value);
+            var endUtc = ToEndOfDayUtc(endDate.Value);
             query = query.Where(l => l.RecordedAt <= endUtc);
         }
 
@@ -208,7 +215,7 @@ public class LocationsController : ControllerBase
         }
         if (endDate.HasValue)
         {
-            var endUtc = ToUtc(endDate.Value);
+            var endUtc = ToEndOfDayUtc(endDate.Value);
             query = query.Where(l => l.RecordedAt <= endUtc);
         }
 
@@ -264,7 +271,7 @@ public class LocationsController : ControllerBase
         }
         if (endDate.HasValue)
         {
-            var endUtc = ToUtc(endDate.Value);
+            var endUtc = ToEndOfDayUtc(endDate.Value);
             query = query.Where(l => l.RecordedAt <= endUtc);
         }
 
@@ -289,6 +296,96 @@ public class LocationsController : ControllerBase
         )).ToList();
 
         return Ok(heatmapPoints);
+    }
+
+    [HttpPost("backfill")]
+    public async Task<ActionResult<object>> BackfillLocations()
+    {
+        var userId = GetUserId();
+
+        // Find all Location, MotionStart, and MotionStop activities that don't have a corresponding LocationPoint
+        var locationTypes = new[] { ActivityType.Location, ActivityType.MotionStart, ActivityType.MotionStop };
+        var activitiesWithoutLocations = await _unitOfWork.Activities.Query()
+            .Include(a => a.Location)
+            .Where(a => a.UserId == userId && locationTypes.Contains(a.Type) && a.Location == null)
+            .ToListAsync();
+
+        var backfilledCount = 0;
+        foreach (var activity in activitiesWithoutLocations)
+        {
+            if (activity.Data == null) continue;
+
+            try
+            {
+                double? latitude = null;
+                double? longitude = null;
+                double? accuracy = null;
+                double? altitude = null;
+                double? speed = null;
+                double? heading = null;
+
+                if (activity.Type == ActivityType.Location)
+                {
+                    // Location activities have coordinates at root level
+                    latitude = GetJsonElementDouble(activity.Data.RootElement, "latitude");
+                    longitude = GetJsonElementDouble(activity.Data.RootElement, "longitude");
+                    accuracy = GetJsonElementDouble(activity.Data.RootElement, "accuracy");
+                    altitude = GetJsonElementDouble(activity.Data.RootElement, "altitude");
+                    speed = GetJsonElementDouble(activity.Data.RootElement, "speed");
+                    heading = GetJsonElementDouble(activity.Data.RootElement, "heading");
+                }
+                else if (activity.Type == ActivityType.MotionStart || activity.Type == ActivityType.MotionStop)
+                {
+                    // Motion events have coordinates nested under "location" key
+                    if (activity.Data.RootElement.TryGetProperty("location", out var locationElement) &&
+                        locationElement.ValueKind == System.Text.Json.JsonValueKind.Object)
+                    {
+                        latitude = GetJsonElementDouble(locationElement, "latitude");
+                        longitude = GetJsonElementDouble(locationElement, "longitude");
+                        accuracy = GetJsonElementDouble(locationElement, "accuracy");
+                        altitude = GetJsonElementDouble(locationElement, "altitude");
+                        speed = GetJsonElementDouble(locationElement, "speed");
+                        heading = GetJsonElementDouble(locationElement, "heading");
+                    }
+                }
+
+                if (latitude == null || longitude == null) continue;
+
+                var locationPoint = new LocationPoint
+                {
+                    Latitude = latitude.Value,
+                    Longitude = longitude.Value,
+                    Accuracy = accuracy ?? 0,
+                    Altitude = altitude,
+                    Speed = speed,
+                    Heading = heading,
+                    RecordedAt = activity.Timestamp,
+                    ActivityId = activity.Id
+                };
+
+                await _unitOfWork.Locations.AddAsync(locationPoint);
+                backfilledCount++;
+            }
+            catch (Exception)
+            {
+                // Skip activities with invalid data
+            }
+        }
+
+        await _unitOfWork.SaveChangesAsync();
+
+        return Ok(new { backfilledCount, totalActivitiesChecked = activitiesWithoutLocations.Count });
+    }
+
+    private static double? GetJsonElementDouble(System.Text.Json.JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var prop))
+            return null;
+        if (prop.ValueKind == System.Text.Json.JsonValueKind.Null)
+            return null;
+        if (prop.TryGetDouble(out var value))
+            return value;
+        return null;
     }
 
     [HttpDelete]
@@ -325,7 +422,7 @@ public class LocationsController : ControllerBase
         }
         if (request.EndDate.HasValue)
         {
-            var endUtc = ToUtc(request.EndDate.Value);
+            var endUtc = ToEndOfDayUtc(request.EndDate.Value);
             query = query.Where(l => l.RecordedAt <= endUtc);
         }
 

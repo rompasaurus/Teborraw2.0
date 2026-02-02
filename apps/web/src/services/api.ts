@@ -173,6 +173,8 @@ export const locationsApi = {
 
   deleteAll: () => api.delete('/locations'),
 
+  backfill: () => api.post('/locations/backfill'),
+
   export: (data: {
     format: 'json' | 'gpx' | 'csv'
     startDate?: string

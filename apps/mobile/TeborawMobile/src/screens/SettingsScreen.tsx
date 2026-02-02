@@ -18,6 +18,7 @@ import {
 interface TrackingState {
   locationEnabled: boolean
   audioEnabled: boolean
+  soundEffectsEnabled: boolean
   pendingCount: number
   isTracking: boolean
   hasBackgroundPermission: boolean
@@ -29,6 +30,7 @@ export function SettingsScreen() {
   const [state, setState] = useState<TrackingState>({
     locationEnabled: true,
     audioEnabled: false,
+    soundEffectsEnabled: true,
     pendingCount: 0,
     isTracking: false,
     hasBackgroundPermission: false,
@@ -60,6 +62,7 @@ export function SettingsScreen() {
       ...prev,
       locationEnabled: settings.locationEnabled,
       audioEnabled: settings.audioEnabled,
+      soundEffectsEnabled: settings.soundEffectsEnabled,
       pendingCount,
       isTracking,
       hasBackgroundPermission: hasPermission,
@@ -96,6 +99,12 @@ export function SettingsScreen() {
     const newValue = !state.audioEnabled
     setState((prev) => ({ ...prev, audioEnabled: newValue }))
     await TrackingService.updateSettings({ audioEnabled: newValue })
+  }
+
+  const handleSoundEffectsToggle = async () => {
+    const newValue = !state.soundEffectsEnabled
+    setState((prev) => ({ ...prev, soundEffectsEnabled: newValue }))
+    await TrackingService.updateSettings({ soundEffectsEnabled: newValue })
   }
 
   const handleSyncNow = async () => {
@@ -233,6 +242,21 @@ export function SettingsScreen() {
           <Switch
             value={state.audioEnabled}
             onValueChange={handleAudioToggle}
+            trackColor={{ false: '#334155', true: '#0ea5e9' }}
+            thumbColor="#fff"
+          />
+        </View>
+
+        <View style={styles.settingRow}>
+          <View style={styles.settingInfo}>
+            <Text style={styles.settingName}>Sound Effects</Text>
+            <Text style={styles.settingDesc}>
+              Play sounds for sync and tracking events
+            </Text>
+          </View>
+          <Switch
+            value={state.soundEffectsEnabled}
+            onValueChange={handleSoundEffectsToggle}
             trackColor={{ false: '#334155', true: '#0ea5e9' }}
             thumbColor="#fff"
           />

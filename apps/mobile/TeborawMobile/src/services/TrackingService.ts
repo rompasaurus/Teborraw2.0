@@ -4,6 +4,7 @@ import BackgroundGeolocation, {
   Subscription,
   State,
 } from 'react-native-background-geolocation'
+import { SoundService } from './SoundService'
 
 interface Activity {
   type: string
@@ -15,6 +16,7 @@ interface Activity {
 interface TrackingSettings {
   locationEnabled: boolean
   audioEnabled: boolean
+  soundEffectsEnabled: boolean
   locationInterval: number
   audioChunkDuration: number
 }
@@ -22,6 +24,7 @@ interface TrackingSettings {
 const DEFAULT_SETTINGS: TrackingSettings = {
   locationEnabled: true,
   audioEnabled: false, // Audio recording disabled by default
+  soundEffectsEnabled: true, // Sound effects enabled by default
   locationInterval: 60000, // 1 minute
   audioChunkDuration: 300000, // 5 minutes
 }
@@ -52,6 +55,10 @@ class TrackingServiceClass {
       this.settings = { ...DEFAULT_SETTINGS, ...JSON.parse(settingsStr) }
     }
 
+    // Initialize sound service with current settings
+    await SoundService.initialize()
+    await SoundService.setEnabled(this.settings.soundEffectsEnabled)
+
     // Start location tracking
     if (this.settings.locationEnabled) {
       await this.startLocationTracking()
@@ -60,11 +67,17 @@ class TrackingServiceClass {
     // Start sync interval (every 5 minutes)
     this.syncInterval = setInterval(() => this.syncActivities(), 300000)
 
+    // Play tracking start sound
+    SoundService.playTrackingStart()
+
     console.log('Tracking service started')
   }
 
   async stop() {
     this.isRunning = false
+
+    // Play tracking stop sound
+    SoundService.playTrackingStop()
 
     // Stop location tracking
     await this.stopLocationTracking()
@@ -303,6 +316,7 @@ class TrackingServiceClass {
           'lastSyncTimestamp',
           new Date().toISOString()
         )
+        SoundService.playSyncComplete()
         console.log(`[Sync] Successfully synced ${result.syncedCount} activities`)
       } else if (response.status === 401) {
         console.log('[Sync] Token expired, attempting refresh...')
@@ -310,9 +324,11 @@ class TrackingServiceClass {
         // Retry sync after refresh
         await this.syncActivities()
       } else {
+        SoundService.playSyncError()
         console.error(`[Sync] Failed with status: ${response.status}`)
       }
     } catch (error) {
+      SoundService.playSyncError()
       console.error('[Sync] Failed:', error)
     }
   }
@@ -386,6 +402,11 @@ class TrackingServiceClass {
       } else if (!settings.locationEnabled) {
         await this.stopLocationTracking()
       }
+    }
+
+    // Handle sound effects toggle
+    if ('soundEffectsEnabled' in settings) {
+      await SoundService.setEnabled(settings.soundEffectsEnabled!)
     }
 
     console.log('[Settings] Updated:', this.settings)

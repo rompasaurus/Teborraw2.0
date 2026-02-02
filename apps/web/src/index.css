@@ -86,10 +86,15 @@ body {
   color: #0ea5e9 !important;
 }
 
-/* Custom marker styles */
-.custom-marker {
-  background: transparent;
-  border: none;
+/* Custom marker styles - ensure divIcon markers display correctly */
+.leaflet-marker-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.leaflet-div-icon {
+  background: transparent !important;
+  border: none !important;
 }
 
 /* Thin auto-hiding scrollbar */

@@ -22,9 +22,11 @@ import {
   Play,
   Pause,
   RotateCcw,
+  RefreshCw,
 } from 'lucide-react'
 import { Layout } from '@/components/Layout'
 import { locationsApi } from '@/services/api'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type {
   LocationPoint,
   LocationSummary,
@@ -46,17 +48,18 @@ L.Icon.Default.mergeOptions({
 // Custom marker icon
 const createMarkerIcon = (color: string = '#0ea5e9') => {
   return L.divIcon({
-    className: 'custom-marker',
+    className: '',
     html: `<div style="
       background-color: ${color};
-      width: 12px;
-      height: 12px;
+      width: 14px;
+      height: 14px;
       border-radius: 50%;
       border: 2px solid white;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+      cursor: pointer;
     "></div>`,
-    iconSize: [12, 12],
-    iconAnchor: [6, 6],
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
   })
 }
 
@@ -64,9 +67,11 @@ const createMarkerIcon = (color: string = '#0ea5e9') => {
 function MapController({
   center,
   zoom,
+  sidebarOpen,
 }: {
   center: [number, number]
   zoom: number
+  sidebarOpen: boolean
 }) {
   const map = useMap()
 
@@ -75,6 +80,17 @@ function MapController({
       map.setView(center, zoom)
     }
   }, [center, zoom, map])
+
+  // Invalidate map size when sidebar toggles or center changes to fix empty tile blocks
+  useEffect(() => {
+    // Immediate invalidate for data changes
+    map.invalidateSize()
+    // Delayed invalidate for sidebar transition
+    const timeout = setTimeout(() => {
+      map.invalidateSize()
+    }, 350)
+    return () => clearTimeout(timeout)
+  }, [sidebarOpen, center, map])
 
   return null
 }
@@ -119,6 +135,25 @@ export function Locations() {
   const [selectedLocation, setSelectedLocation] = useState<LocationPoint | null>(null)
   const [playbackIndex, setPlaybackIndex] = useState<number | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
+
+  const queryClient = useQueryClient()
+
+  // Backfill mutation to create LocationPoints from existing activities
+  const backfillMutation = useMutation({
+    mutationFn: () => locationsApi.backfill(),
+    onSuccess: (response) => {
+      const { backfilledCount } = response.data as { backfilledCount: number }
+      if (backfilledCount > 0) {
+        queryClient.invalidateQueries({ queryKey: ['locations'] })
+        queryClient.invalidateQueries({ queryKey: ['locations-summary'] })
+        queryClient.invalidateQueries({ queryKey: ['locations-heatmap'] })
+      }
+      alert(`Synced ${backfilledCount} locations from activities`)
+    },
+    onError: () => {
+      alert('Failed to sync locations')
+    },
+  })
 
   // Fetch locations
   const { data: locationsData, isLoading: locationsLoading } = useQuery({
@@ -254,18 +289,29 @@ export function Locations() {
 
   return (
     <Layout>
-      <div className="flex h-[calc(100vh-64px)] bg-slate-900">
+      <div className="flex h-[calc(100vh-64px)] bg-slate-900 relative">
         {/* Sidebar */}
         <div
           className={`${
             sidebarOpen ? 'w-80' : 'w-0'
-          } transition-all duration-300 overflow-hidden border-r border-slate-700 flex flex-col`}
+          } shrink-0 transition-all duration-300 overflow-hidden border-r border-slate-700 flex flex-col bg-slate-900 z-20`}
         >
           {/* Summary Stats */}
           <div className="p-4 border-b border-slate-700">
-            <h2 className="text-lg font-semibold text-white mb-3">
-              Location History
-            </h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold text-white">
+                Location History
+              </h2>
+              <button
+                onClick={() => backfillMutation.mutate()}
+                disabled={backfillMutation.isPending}
+                className="flex items-center gap-1 px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 rounded disabled:opacity-50"
+                title="Sync locations from activities"
+              >
+                <RefreshCw className={`w-3 h-3 ${backfillMutation.isPending ? 'animate-spin' : ''}`} />
+                Sync
+              </button>
+            </div>
 
             {summary && (
               <div className="grid grid-cols-2 gap-3">
@@ -465,11 +511,12 @@ export function Locations() {
           </div>
         </div>
 
-        {/* Toggle Sidebar Button */}
+        {/* Toggle Sidebar Button - positioned at sidebar edge */}
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="absolute left-0 top-1/2 transform -translate-y-1/2 z-[1000] bg-slate-800 hover:bg-slate-700 text-white p-2 rounded-r-lg border border-l-0 border-slate-600"
-          style={{ marginLeft: sidebarOpen ? '320px' : '0' }}
+          className={`absolute top-1/2 -translate-y-1/2 z-[1001] bg-slate-800 hover:bg-slate-700 text-white p-2 rounded-r-lg border border-l-0 border-slate-600 transition-all duration-300 ${
+            sidebarOpen ? 'left-80' : 'left-0'
+          }`}
         >
           {sidebarOpen ? (
             <ChevronLeft className="w-4 h-4" />
@@ -496,7 +543,7 @@ export function Locations() {
                 url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
               />
 
-              <MapController center={mapConfig.center} zoom={mapConfig.zoom} />
+              <MapController center={mapConfig.center} zoom={mapConfig.zoom} sidebarOpen={sidebarOpen} />
 
               {/* Heat map layer */}
               {showHeatmap && heatmapData && (

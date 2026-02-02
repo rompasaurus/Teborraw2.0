@@ -153,6 +153,36 @@ public class ActivitiesController : ControllerBase
         return NoContent();
     }
 
+    private static double? GetDoubleFromDictionary(Dictionary<string, object> data, string key)
+    {
+        if (!data.TryGetValue(key, out var value) || value == null)
+            return null;
+
+        // Handle JsonElement (from System.Text.Json deserialization)
+        if (value is JsonElement jsonElement)
+        {
+            if (jsonElement.ValueKind == JsonValueKind.Null)
+                return null;
+            if (jsonElement.TryGetDouble(out var d))
+                return d;
+            return null;
+        }
+
+        // Handle direct numeric types
+        return Convert.ToDouble(value);
+    }
+
+    private static double? GetJsonElementDouble(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var prop))
+            return null;
+        if (prop.ValueKind == JsonValueKind.Null)
+            return null;
+        if (prop.TryGetDouble(out var value))
+            return value;
+        return null;
+    }
+
     [HttpPost("sync")]
     public async Task<ActionResult<SyncResponse>> SyncActivities([FromBody] SyncRequest request)
     {
@@ -178,18 +208,49 @@ public class ActivitiesController : ControllerBase
                     var data = activityRequest.Data;
                     activity.Location = new LocationPoint
                     {
-                        Latitude = data.ContainsKey("latitude") ? Convert.ToDouble(data["latitude"]) : 0,
-                        Longitude = data.ContainsKey("longitude") ? Convert.ToDouble(data["longitude"]) : 0,
-                        Accuracy = data.ContainsKey("accuracy") ? Convert.ToDouble(data["accuracy"]) : 0,
-                        Altitude = data.ContainsKey("altitude") ? Convert.ToDouble(data["altitude"]) : null,
-                        Speed = data.ContainsKey("speed") ? Convert.ToDouble(data["speed"]) : null,
-                        Heading = data.ContainsKey("heading") ? Convert.ToDouble(data["heading"]) : null,
+                        Latitude = GetDoubleFromDictionary(data, "latitude") ?? 0,
+                        Longitude = GetDoubleFromDictionary(data, "longitude") ?? 0,
+                        Accuracy = GetDoubleFromDictionary(data, "accuracy") ?? 0,
+                        Altitude = GetDoubleFromDictionary(data, "altitude"),
+                        Speed = GetDoubleFromDictionary(data, "speed"),
+                        Heading = GetDoubleFromDictionary(data, "heading"),
                         RecordedAt = activityRequest.Timestamp ?? DateTime.UtcNow
                     };
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    // If parsing fails, continue without the LocationPoint
+                    Console.WriteLine($"Failed to create LocationPoint: {ex.Message}");
+                }
+            }
+
+            // Also extract location from MotionStart/MotionStop events (location is nested under "location" key)
+            if ((activityRequest.Type == ActivityType.MotionStart || activityRequest.Type == ActivityType.MotionStop) && activityRequest.Data != null)
+            {
+                try
+                {
+                    var data = activityRequest.Data;
+                    if (data.TryGetValue("location", out var locationObj) && locationObj is JsonElement locationElement && locationElement.ValueKind == JsonValueKind.Object)
+                    {
+                        var lat = GetJsonElementDouble(locationElement, "latitude");
+                        var lng = GetJsonElementDouble(locationElement, "longitude");
+                        if (lat.HasValue && lng.HasValue)
+                        {
+                            activity.Location = new LocationPoint
+                            {
+                                Latitude = lat.Value,
+                                Longitude = lng.Value,
+                                Accuracy = GetJsonElementDouble(locationElement, "accuracy") ?? 0,
+                                Altitude = GetJsonElementDouble(locationElement, "altitude"),
+                                Speed = GetJsonElementDouble(locationElement, "speed"),
+                                Heading = GetJsonElementDouble(locationElement, "heading"),
+                                RecordedAt = activityRequest.Timestamp ?? DateTime.UtcNow
+                            };
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to create LocationPoint from motion event: {ex.Message}");
                 }
             }
 
