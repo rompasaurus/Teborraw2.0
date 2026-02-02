@@ -14,6 +14,7 @@ Usage:
     python deploy.py logs [service]       # View server logs
     python deploy.py status               # Check server service status
     python deploy.py ssh                  # SSH into server
+    python deploy.py ssh-agent            # Add SSH key to agent (cache passphrase)
     python deploy.py backup               # Backup production database
     python deploy.py config               # Show/set server config
 """
@@ -664,6 +665,64 @@ def cmd_restart(args, config):
 
 
 # ==========================================
+# SSH Agent
+# ==========================================
+
+def cmd_ssh_agent(args, config):
+    """Add SSH key to ssh-agent to cache passphrase."""
+    print_header("SSH Agent Setup")
+    print_info("This will start ssh-agent and add your key so you only enter the passphrase once.")
+    print()
+
+    # Check if ssh-agent is already running
+    ssh_auth_sock = os.environ.get('SSH_AUTH_SOCK')
+    if ssh_auth_sock and os.path.exists(ssh_auth_sock):
+        print_info("ssh-agent is already running")
+    else:
+        print_step("Starting ssh-agent...")
+        result = subprocess.run(['ssh-agent', '-s'], capture_output=True, text=True)
+        if result.returncode == 0:
+            # Parse and set environment variables
+            for line in result.stdout.split('\n'):
+                if line.startswith('SSH_AUTH_SOCK='):
+                    sock = line.split('=')[1].split(';')[0]
+                    os.environ['SSH_AUTH_SOCK'] = sock
+                elif line.startswith('SSH_AGENT_PID='):
+                    pid = line.split('=')[1].split(';')[0]
+                    os.environ['SSH_AGENT_PID'] = pid
+            print_success("ssh-agent started")
+        else:
+            print_error("Failed to start ssh-agent")
+            return
+
+    # Add the key
+    key_path = os.path.expanduser('~/.ssh/id_ed25519')
+    if not os.path.exists(key_path):
+        key_path = os.path.expanduser('~/.ssh/id_rsa')
+        if not os.path.exists(key_path):
+            print_error("No SSH key found at ~/.ssh/id_ed25519 or ~/.ssh/id_rsa")
+            return
+
+    print_step(f"Adding key: {key_path}")
+    print_info("You will be prompted for your passphrase...")
+    print()
+
+    # Use --apple-use-keychain on macOS for persistent storage
+    if platform.system() == 'Darwin':
+        result = subprocess.run(['ssh-add', '--apple-use-keychain', key_path])
+        if result.returncode == 0:
+            print()
+            print_success("Key added to ssh-agent and macOS Keychain")
+            print_info("Your passphrase is now saved permanently")
+    else:
+        result = subprocess.run(['ssh-add', key_path])
+        if result.returncode == 0:
+            print()
+            print_success("Key added to ssh-agent")
+            print_info("Passphrase cached for this session")
+
+
+# ==========================================
 # Config
 # ==========================================
 
@@ -845,6 +904,7 @@ def interactive_menu():
 
         # Manage
         print(f"  {Colors.BOLD}Manage{Colors.NC}")
+        menu_option("a", "Add SSH key to agent",     "Cache passphrase (enter once)")
         menu_option("b", "Database backup",          "Download a DB backup")
         menu_option("s", "SSH into server",          "Open shell")
         menu_option("c", "Configuration",            "Edit deploy settings")
@@ -916,6 +976,10 @@ def interactive_menu():
                 dummy_args.services = None
                 pause()
 
+        elif choice == 'a':
+            cmd_ssh_agent(dummy_args, config)
+            pause()
+
         elif choice == 'b':
             config = ensure_config(config)
             cmd_backup(dummy_args, config)
@@ -961,6 +1025,7 @@ Commands:
   status             Check server health
   restart [service]  Restart services
   ssh                Open SSH session
+  ssh-agent          Add SSH key to agent (cache passphrase)
   backup             Download a database backup
   config [key val]   Show or set configuration
 
@@ -971,7 +1036,7 @@ Run without arguments for interactive menu.
     parser.add_argument('command', choices=[
         'setup', 'setup-caddy', 'setup-env',
         'build', 'push', 'deploy', 'migrate',
-        'logs', 'status', 'restart', 'ssh', 'backup', 'config'
+        'logs', 'status', 'restart', 'ssh', 'ssh-agent', 'backup', 'config'
     ], help='Command to run')
     parser.add_argument('services', nargs='*', help='Services to target (api, web)')
     parser.add_argument('--tail', default='100', help='Number of log lines (default: 100)')
@@ -991,6 +1056,7 @@ Run without arguments for interactive menu.
         'status': cmd_status,
         'restart': cmd_restart,
         'ssh': cmd_ssh,
+        'ssh-agent': cmd_ssh_agent,
         'backup': cmd_backup,
         'config': cmd_config,
     }

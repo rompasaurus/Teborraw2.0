@@ -1,0 +1,38 @@
+<svg viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="224" fill="#0f172a"/>
+
+  <!-- Outer circle -->
+  <circle cx="512" cy="512" r="400" stroke="#0ea5e9" stroke-width="48" fill="none"/>
+
+  <!-- Inner glow circle -->
+  <circle cx="512" cy="512" r="320" fill="#0ea5e9" fill-opacity="0.1"/>
+
+  <!-- Stylized T - horizontal bar -->
+  <rect x="272" y="280" width="480" height="64" rx="32" fill="#0ea5e9"/>
+
+  <!-- Stylized T - vertical bar -->
+  <rect x="480" y="280" width="64" height="464" rx="32" fill="#0ea5e9"/>
+
+  <!-- Activity wave left -->
+  <path
+    d="M224 576 L288 480 L352 608 L416 512"
+    stroke="#0ea5e9"
+    stroke-width="40"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+    opacity="0.7"
+  />
+
+  <!-- Activity wave right -->
+  <path
+    d="M608 512 L672 608 L736 480 L800 576"
+    stroke="#0ea5e9"
+    stroke-width="40"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+    opacity="0.7"
+  />
+</svg>
