@@ -81,16 +81,44 @@ function MapController({
     }
   }, [center, zoom, map])
 
-  // Invalidate map size when sidebar toggles or center changes to fix empty tile blocks
+  // Invalidate map size on mount and when container might resize
   useEffect(() => {
-    // Immediate invalidate for data changes
-    map.invalidateSize()
-    // Delayed invalidate for sidebar transition
-    const timeout = setTimeout(() => {
-      map.invalidateSize()
-    }, 350)
-    return () => clearTimeout(timeout)
-  }, [sidebarOpen, center, map])
+    // Multiple invalidations to catch layout shifts
+    const invalidate = () => map.invalidateSize({ animate: false })
+
+    invalidate()
+    const t1 = setTimeout(invalidate, 100)
+    const t2 = setTimeout(invalidate, 300)
+    const t3 = setTimeout(invalidate, 500)
+
+    // Handle window resize
+    const handleResize = () => {
+      invalidate()
+      setTimeout(invalidate, 100)
+    }
+    window.addEventListener('resize', handleResize)
+
+    return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
+      clearTimeout(t3)
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [map])
+
+  // Invalidate when sidebar toggles
+  useEffect(() => {
+    const invalidate = () => map.invalidateSize({ animate: false })
+    invalidate()
+    const t1 = setTimeout(invalidate, 100)
+    const t2 = setTimeout(invalidate, 350)
+    const t3 = setTimeout(invalidate, 500)
+    return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
+      clearTimeout(t3)
+    }
+  }, [sidebarOpen, map])
 
   return null
 }
@@ -526,21 +554,22 @@ export function Locations() {
         </button>
 
         {/* Map */}
-        <div className="flex-1 relative">
+        <div className="flex-1 relative min-h-0">
           {locationsLoading ? (
             <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
               <div className="text-slate-400">Loading locations...</div>
             </div>
           ) : (
-            <MapContainer
-              center={mapConfig.center}
-              zoom={mapConfig.zoom}
-              className="h-full w-full"
-              style={{ background: '#0f172a' }}
-            >
+            <div className="absolute inset-0">
+              <MapContainer
+                center={mapConfig.center}
+                zoom={mapConfig.zoom}
+                style={{ width: '100%', height: '100%', background: '#f8fafc' }}
+              >
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                maxZoom={19}
               />
 
               <MapController center={mapConfig.center} zoom={mapConfig.zoom} sidebarOpen={sidebarOpen} />
@@ -610,6 +639,7 @@ export function Locations() {
                 </Marker>
               ))}
             </MapContainer>
+            </div>
           )}
 
           {/* No data overlay */}

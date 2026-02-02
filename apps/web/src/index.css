@@ -1,9 +1,9 @@
+/* Leaflet CSS - must come BEFORE Tailwind to prevent reset conflicts */
+@import 'leaflet/dist/leaflet.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Leaflet CSS */
-@import 'leaflet/dist/leaflet.css';
 
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
@@ -42,21 +42,59 @@ body {
   }
 }
 
-/* Leaflet dark theme overrides */
+/* Leaflet positioning fixes - restore styles that Tailwind base may reset */
+.leaflet-pane,
+.leaflet-tile-container,
+.leaflet-pane > svg,
+.leaflet-pane > canvas,
+.leaflet-zoom-box,
+.leaflet-image-layer,
+.leaflet-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+/* Tiles need position:absolute but NOT left/top (Leaflet positions them individually) */
+.leaflet-tile {
+  position: absolute;
+}
+
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+  position: absolute;
+}
+
 .leaflet-container {
-  background-color: #0f172a;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Leaflet light theme overrides */
+.leaflet-container {
+  background-color: #f8fafc;
   font-family: inherit;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.leaflet-tile-pane {
+  opacity: 1 !important;
+}
+
+.leaflet-tile {
+  visibility: visible !important;
 }
 
 .leaflet-popup-content-wrapper {
-  background-color: #1e293b;
-  color: #e2e8f0;
+  background-color: #ffffff;
+  color: #1e293b;
   border-radius: 8px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 .leaflet-popup-tip {
-  background-color: #1e293b;
+  background-color: #ffffff;
 }
 
 .leaflet-popup-content {
@@ -68,17 +106,17 @@ body {
 }
 
 .leaflet-control-zoom a {
-  background-color: #1e293b !important;
-  color: #e2e8f0 !important;
-  border: 1px solid #334155 !important;
+  background-color: #ffffff !important;
+  color: #334155 !important;
+  border: 1px solid #e2e8f0 !important;
 }
 
 .leaflet-control-zoom a:hover {
-  background-color: #334155 !important;
+  background-color: #f1f5f9 !important;
 }
 
 .leaflet-control-attribution {
-  background-color: rgba(15, 23, 42, 0.8) !important;
+  background-color: rgba(255, 255, 255, 0.8) !important;
   color: #64748b !important;
 }
 
