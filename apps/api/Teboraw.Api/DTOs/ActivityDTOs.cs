@@ -103,6 +103,15 @@ public record AudioRecordingDto(
     DateTime RecordedAt
 );
 
+public record UploadAudioResponse(
+    Guid Id,
+    Guid ActivityId,
+    string FilePath,
+    int DurationSeconds,
+    string TranscriptionStatus,
+    DateTime RecordedAt
+);
+
 // Sync DTOs
 public record SyncRequest(
     [Required] string DeviceId,

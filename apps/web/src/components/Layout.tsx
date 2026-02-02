@@ -8,6 +8,7 @@ import {
   LogOut,
   Map,
   Menu,
+  Mic,
   Settings,
   User,
   X,
@@ -73,6 +74,7 @@ const navItems = [
   { path: '/dashboard', label: 'Timeline', icon: Activity },
   { path: '/calendar', label: 'Calendar', icon: Calendar },
   { path: '/locations', label: 'Locations', icon: Map },
+  { path: '/audio', label: 'Audio', icon: Mic },
 ]
 
 // Load saved width from localStorage

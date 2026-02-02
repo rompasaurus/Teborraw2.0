@@ -4,6 +4,7 @@ import BackgroundGeolocation, {
   Subscription,
   State,
 } from 'react-native-background-geolocation'
+import { AudioService } from './AudioService'
 
 interface Activity {
   type: string
@@ -57,6 +58,11 @@ class TrackingServiceClass {
       await this.startLocationTracking()
     }
 
+    // Start audio recording if enabled
+    if (this.settings.audioEnabled) {
+      await AudioService.setEnabled(true)
+    }
+
     // Start sync interval (every 5 minutes)
     this.syncInterval = setInterval(() => this.syncActivities(), 300000)
 
@@ -65,6 +71,9 @@ class TrackingServiceClass {
 
   async stop() {
     this.isRunning = false
+
+    // Stop audio recording
+    await AudioService.stop()
 
     // Stop location tracking
     await this.stopLocationTracking()
@@ -253,6 +262,9 @@ class TrackingServiceClass {
   }
 
   async syncActivities() {
+    // Upload pending audio chunks
+    await AudioService.uploadPendingChunks()
+
     if (this.pendingActivities.length === 0) {
       console.log('[Sync] No pending activities')
       return
@@ -386,6 +398,11 @@ class TrackingServiceClass {
       } else if (!settings.locationEnabled) {
         await this.stopLocationTracking()
       }
+    }
+
+    // Handle audio recording toggle
+    if ('audioEnabled' in settings) {
+      await AudioService.setEnabled(settings.audioEnabled! && this.isRunning)
     }
 
     console.log('[Settings] Updated:', this.settings)

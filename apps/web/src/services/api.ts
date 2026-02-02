@@ -146,6 +146,25 @@ export const thoughtsApi = {
   getTags: () => api.get('/thoughts/tags'),
 }
 
+// Audio Recordings API
+export const audioApi = {
+  list: (params?: {
+    startDate?: string
+    endDate?: string
+    status?: string
+    page?: number
+    pageSize?: number
+  }) => api.get('/audio', { params }),
+
+  get: (id: string) => api.get(`/audio/${id}`),
+
+  getStreamUrl: (id: string) => `${API_BASE_URL}/audio/${id}/stream`,
+
+  getTranscription: (id: string) => api.get(`/audio/${id}/transcription`),
+
+  delete: (id: string) => api.delete(`/audio/${id}`),
+}
+
 // Locations API
 export const locationsApi = {
   list: (params?: {

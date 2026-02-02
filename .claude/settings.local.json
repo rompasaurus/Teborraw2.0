@@ -79,7 +79,8 @@
       "Bash($ADB reverse tcp:8081 tcp:8081)",
       "Bash($ADB shell am force-stop com.teborawmobile)",
       "Bash($ADB shell am start -n com.teborawmobile/.MainActivity)",
-      "Bash($HOME/Library/Android/sdk/platform-tools/adb install:*)"
+      "Bash($HOME/Library/Android/sdk/platform-tools/adb install:*)",
+      "Bash(./gradlew app:compileDebugKotlin:*)"
     ]
   }
 }

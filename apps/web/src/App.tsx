@@ -8,6 +8,7 @@ import { Calendar } from '@/pages/Calendar'
 import { Thoughts } from '@/pages/Thoughts'
 import { Settings } from '@/pages/Settings'
 import { Locations } from '@/pages/Locations'
+import { Audio } from '@/pages/Audio'
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '59537193856-oc776rrlfild0aepqekjhf0j9b2hloqf.apps.googleusercontent.com'
 
@@ -83,6 +84,14 @@ function App() {
         element={
           <ProtectedRoute>
             <Locations />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/audio"
+        element={
+          <ProtectedRoute>
+            <Audio />
           </ProtectedRoute>
         }
       />

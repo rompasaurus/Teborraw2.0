@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import { activitiesApi } from '@/services/api'
 import { Layout } from '@/components/Layout'
+import { AudioPlayer } from '@/components/audio'
 
 const sourceIcons = {
   Desktop: Monitor,
@@ -456,6 +457,82 @@ export function Dashboard() {
             <div>
               <span className="text-xs text-slate-500">Accuracy:</span>
               <p className="text-sm text-white">{data.accuracy}m</p>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    if (activityType === 'AudioRecording') {
+      const formatDuration = (seconds: number) => {
+        const mins = Math.floor(seconds / 60)
+        const secs = seconds % 60
+        if (mins === 0) return `${secs}s`
+        return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Audio Player */}
+          {data.audioRecordingId && (
+            <div>
+              <span className="text-xs text-slate-500 block mb-2">Audio Playback:</span>
+              <AudioPlayer
+                audioId={data.audioRecordingId}
+                durationSeconds={data.durationSeconds || 0}
+              />
+            </div>
+          )}
+
+          {/* Duration */}
+          {data.durationSeconds && (
+            <div>
+              <span className="text-xs text-slate-500">Duration:</span>
+              <p className="text-sm text-white">{formatDuration(data.durationSeconds)}</p>
+            </div>
+          )}
+
+          {/* File Info */}
+          {data.fileName && (
+            <div>
+              <span className="text-xs text-slate-500">File:</span>
+              <p className="text-sm text-white">{data.fileName}</p>
+            </div>
+          )}
+
+          {data.fileSizeBytes && (
+            <div>
+              <span className="text-xs text-slate-500">File Size:</span>
+              <p className="text-sm text-white">
+                {(data.fileSizeBytes / 1024 / 1024).toFixed(2)} MB
+              </p>
+            </div>
+          )}
+
+          {/* Transcription Status */}
+          {data.transcriptionStatus && (
+            <div>
+              <span className="text-xs text-slate-500">Transcription Status:</span>
+              <p className={`text-sm ${
+                data.transcriptionStatus === 'Completed' ? 'text-green-400' :
+                data.transcriptionStatus === 'Failed' ? 'text-red-400' :
+                data.transcriptionStatus === 'Processing' ? 'text-blue-400' :
+                'text-yellow-400'
+              }`}>
+                {data.transcriptionStatus}
+              </p>
+            </div>
+          )}
+
+          {/* Transcript */}
+          {data.transcript && (
+            <div className="mt-3 pt-3 border-t border-slate-700">
+              <p className="text-xs font-medium text-slate-400 mb-2">Transcript</p>
+              <div className="bg-slate-900 p-3 rounded border border-slate-700 max-h-60 overflow-y-auto">
+                <p className="text-sm text-slate-300 whitespace-pre-wrap">
+                  {data.transcript}
+                </p>
+              </div>
             </div>
           )}
         </div>

@@ -14,6 +14,7 @@ import {
   requestLocationPermissionWithDialog,
   hasBackgroundLocationPermission,
 } from '../utils/permissions'
+import { requestMicrophonePermissionWithDialog } from '../utils/audioPermissions'
 
 interface TrackingState {
   locationEnabled: boolean
@@ -94,6 +95,15 @@ export function SettingsScreen() {
 
   const handleAudioToggle = async () => {
     const newValue = !state.audioEnabled
+
+    if (newValue) {
+      // Request microphone permission if enabling
+      const granted = await requestMicrophonePermissionWithDialog()
+      if (!granted) {
+        return // Don't enable if permission denied
+      }
+    }
+
     setState((prev) => ({ ...prev, audioEnabled: newValue }))
     await TrackingService.updateSettings({ audioEnabled: newValue })
   }

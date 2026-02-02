@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Teboraw.Api.Services;
+using Teboraw.Core.Configuration;
 using Teboraw.Core.Interfaces;
 using Teboraw.Infrastructure.Data;
 using Teboraw.Infrastructure.Repositories;
@@ -87,6 +88,14 @@ builder.Services.AddAuthorization();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+
+// Configure Audio Storage and Whisper
+builder.Services.Configure<AudioStorageSettings>(builder.Configuration.GetSection("AudioStorage"));
+builder.Services.Configure<WhisperSettings>(builder.Configuration.GetSection("Whisper"));
+
+// Register transcription services
+builder.Services.AddSingleton<ITranscriptionService, WhisperTranscriptionService>();
+builder.Services.AddHostedService<TranscriptionBackgroundService>();
 
 // Add health checks
 builder.Services.AddHealthChecks()
