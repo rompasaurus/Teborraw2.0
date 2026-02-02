@@ -66,7 +66,14 @@
       "Bash(readlink:*)",
       "Bash(pnpm run dev:*)",
       "Bash(python3:*)",
-      "Bash(openssl rand:*)"
+      "Bash(openssl rand:*)",
+      "Bash(java -version)",
+      "Bash(JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home npx react-native run-android:*)",
+      "Bash(export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home)",
+      "Bash(export ANDROID_HOME=~/Library/Android/sdk)",
+      "Bash(export PATH=$PATH:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator)",
+      "Bash(emulator:*)",
+      "Bash(npm install:*)"
     ]
   }
 }
