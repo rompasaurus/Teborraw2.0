@@ -68,11 +68,14 @@ class SoundServiceClass {
     return this.isEnabled
   }
 
-  play(type: SoundType) {
-    if (!this.isEnabled) {
-      return
+  private async initializeAndPlay(type: SoundType) {
+    await this.initialize()
+    if (this.isEnabled) {
+      this.playSound(type)
     }
+  }
 
+  private playSound(type: SoundType) {
     const sound = this.sounds.get(type)
     if (sound) {
       sound.stop(() => {
@@ -83,9 +86,23 @@ class SoundServiceClass {
         })
       })
     } else {
-      // Sound not loaded - use system haptic/vibration as fallback could be added here
       console.log(`[SoundService] Sound ${type} not loaded, skipping`)
     }
+  }
+
+  play(type: SoundType) {
+    // Ensure we've loaded the enabled state from storage before playing
+    if (!this.isInitialized) {
+      // Can't await here, so initialize and play async
+      this.initializeAndPlay(type)
+      return
+    }
+
+    if (!this.isEnabled) {
+      return
+    }
+
+    this.playSound(type)
   }
 
   // Play sync complete sound
