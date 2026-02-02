@@ -22,7 +22,9 @@ public enum ActivityType
     IdleStart,
     IdleEnd,
     InputActivity,
-    ScrollSession
+    ScrollSession,
+    MotionStart,
+    MotionStop
 }
 
 public class Activity : BaseEntity

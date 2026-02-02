@@ -67,3 +67,4 @@ uploads/
 screenshots/
 recordings/
 teboraw2.0.env.production.local
+apps/mobile/__pycache__/*

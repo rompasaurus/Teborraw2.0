@@ -280,7 +280,7 @@ class TrackingServiceClass {
     try {
       console.log(`[Sync] Syncing ${activitiesToSync.length} activities...`)
 
-      const response = await fetch(`${apiUrl}/api/activities/sync`, {
+      const response = await fetch(`${apiUrl}/activities/sync`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -324,7 +324,7 @@ class TrackingServiceClass {
     if (!refreshToken || !apiUrl) return
 
     try {
-      const response = await fetch(`${apiUrl}/api/auth/refresh`, {
+      const response = await fetch(`${apiUrl}/auth/refresh`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

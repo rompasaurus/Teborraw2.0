@@ -10,7 +10,8 @@ import {
 import { useAuthStore } from '../store/authStore'
 
 export function LoginScreen() {
-  const { apiUrl, setApiUrl, setAuth } = useAuthStore()
+  const { apiUrl: storedApiUrl, setApiUrl, setAuth } = useAuthStore()
+  const [apiUrl, setLocalApiUrl] = useState(storedApiUrl)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -19,6 +20,9 @@ export function LoginScreen() {
   const handleLogin = async () => {
     setError('')
     setLoading(true)
+
+    // Save API URL before attempting login
+    await setApiUrl(apiUrl)
 
     try {
       const response = await fetch(`${apiUrl}/auth/login`, {
@@ -53,11 +57,70 @@ export function LoginScreen() {
       <View style={styles.form}>
         <View style={styles.inputGroup}>
           <Text style={styles.label}>API URL</Text>
+          <View style={styles.apiPresets}>
+            <TouchableOpacity
+              style={[
+                styles.presetButton,
+                apiUrl === 'https://teboraw.com/api' && styles.presetButtonActive,
+              ]}
+              onPress={() => {
+                setLocalApiUrl('https://teboraw.com/api')
+                setApiUrl('https://teboraw.com/api')
+              }}
+            >
+              <Text
+                style={[
+                  styles.presetButtonText,
+                  apiUrl === 'https://teboraw.com/api' && styles.presetButtonTextActive,
+                ]}
+              >
+                Production
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.presetButton,
+                apiUrl.includes('10.0.2.2') && styles.presetButtonActive,
+              ]}
+              onPress={() => {
+                setLocalApiUrl('http://10.0.2.2:5000/api')
+                setApiUrl('http://10.0.2.2:5000/api')
+              }}
+            >
+              <Text
+                style={[
+                  styles.presetButtonText,
+                  apiUrl.includes('10.0.2.2') && styles.presetButtonTextActive,
+                ]}
+              >
+                Emulator
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.presetButton,
+                !apiUrl.includes('teboraw.com') && !apiUrl.includes('10.0.2.2') && styles.presetButtonActive,
+              ]}
+              onPress={() => {
+                // Just highlight custom, user will type in the input
+              }}
+            >
+              <Text
+                style={[
+                  styles.presetButtonText,
+                  !apiUrl.includes('teboraw.com') && !apiUrl.includes('10.0.2.2') && styles.presetButtonTextActive,
+                ]}
+              >
+                Custom
+              </Text>
+            </TouchableOpacity>
+          </View>
           <TextInput
             style={styles.input}
             value={apiUrl}
-            onChangeText={setApiUrl}
-            placeholder="http://10.0.2.2:5000/api"
+            onChangeText={setLocalApiUrl}
+            onBlur={() => setApiUrl(apiUrl)}
+            placeholder="http://192.168.x.x:5000/api"
             placeholderTextColor="#64748b"
             autoCapitalize="none"
           />
@@ -151,6 +214,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#94a3b8',
     marginBottom: 8,
+  },
+  apiPresets: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+  },
+  presetButton: {
+    flex: 1,
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#334155',
+    borderRadius: 6,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  presetButtonActive: {
+    backgroundColor: 'rgba(14, 165, 233, 0.15)',
+    borderColor: '#0ea5e9',
+  },
+  presetButtonText: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  presetButtonTextActive: {
+    color: '#0ea5e9',
   },
   input: {
     backgroundColor: '#1e293b',

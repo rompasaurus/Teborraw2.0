@@ -656,8 +656,8 @@ export function Dashboard() {
 
   return (
     <Layout>
-      <div id="dashboard-page" className="max-w-7xl mx-auto">
-        <div id="dashboard-header" className="flex items-center justify-between mb-8">
+      <div id="dashboard-page" className="max-w-7xl mx-auto h-full flex flex-col overflow-hidden">
+        <div id="dashboard-header" className="flex items-center justify-between mb-8 flex-shrink-0">
           <div>
             <h1 id="dashboard-title" className="text-3xl font-bold text-white">Timeline</h1>
             <p id="dashboard-subtitle" className="text-slate-400 mt-1">Your recent activity</p>
@@ -665,7 +665,7 @@ export function Dashboard() {
         </div>
 
         {/* Filters and Search */}
-        <div id="dashboard-filters-card" className="card mb-6">
+        <div id="dashboard-filters-card" className="card mb-6 flex-shrink-0">
           <div className="space-y-4">
             {/* Search Bar */}
             <div id="dashboard-search-container" className="relative">
@@ -792,7 +792,7 @@ export function Dashboard() {
         </div>
 
         {/* Stats */}
-        <div id="dashboard-stats" className="grid grid-cols-4 gap-4 mb-6">
+        <div id="dashboard-stats" className="grid grid-cols-4 gap-4 mb-6 flex-shrink-0">
           <div id="dashboard-stats-total" className="card">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-primary-500/20 flex items-center justify-center">
@@ -860,8 +860,8 @@ export function Dashboard() {
         </div>
 
         {/* Activity Table */}
-        <div id="dashboard-activity-card" className="card">
-          <div id="dashboard-activity-header" className="mb-4 flex items-center justify-between">
+        <div id="dashboard-activity-card" className="card flex-1 min-h-0 flex flex-col overflow-hidden">
+          <div id="dashboard-activity-header" className="mb-4 flex items-center justify-between flex-shrink-0">
             <h2 id="dashboard-activity-title" className="text-lg font-semibold text-white">
               Activity Timeline
             </h2>
@@ -901,9 +901,9 @@ export function Dashboard() {
               </p>
             </div>
           ) : (
-            <div id="dashboard-table-container" className="overflow-x-auto">
+            <div id="dashboard-table-container" className="overflow-auto flex-1 min-h-0 scrollbar-thin">
               <table id="dashboard-activity-table" className="w-full">
-                <thead id="dashboard-table-header">
+                <thead id="dashboard-table-header" className="sticky top-0 bg-slate-800 z-10">
                   <tr className="border-b border-slate-700">
                     <th id="dashboard-table-header-type" className="text-left py-3 px-4">
                       <button

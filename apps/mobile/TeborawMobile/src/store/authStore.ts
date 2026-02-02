@@ -23,7 +23,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   accessToken: null,
   refreshToken: null,
-  apiUrl: 'http://10.0.2.2:5000/api', // Android emulator localhost
+  apiUrl: 'http://192.168.2.211:5000/api', // Android emulator localhost
   isAuthenticated: false,
 
   setAuth: async (user, accessToken, refreshToken) => {
