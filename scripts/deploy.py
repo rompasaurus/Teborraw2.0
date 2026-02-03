@@ -17,6 +17,7 @@ Usage:
     python deploy.py ssh-agent            # Add SSH key to agent (cache passphrase)
     python deploy.py backup               # Backup production database
     python deploy.py config               # Show/set server config
+    python deploy.py mobile [release|debug]  # Build Android APK
 """
 
 import os
@@ -642,6 +643,81 @@ def cmd_backup(args, config):
 
 
 # ==========================================
+# Mobile Build
+# ==========================================
+
+def cmd_mobile(args, config):
+    """Build Android APK for mobile app."""
+    project_root = get_project_root()
+    mobile_path = os.path.join(project_root, 'apps', 'mobile', 'TeborawMobile')
+    android_path = os.path.join(mobile_path, 'android')
+
+    if not os.path.exists(android_path):
+        print_error(f"Android project not found at {android_path}")
+        sys.exit(1)
+
+    # Check if build type was passed as a positional argument (e.g., mobile release)
+    services = getattr(args, 'services', None)
+    if services and services[0] in ['release', 'debug']:
+        build_type = services[0]
+    else:
+        build_type = getattr(args, 'build_type', 'release') or 'release'
+
+    print_header(f"Building Android APK ({build_type})")
+
+    # Check for gradlew
+    gradlew = os.path.join(android_path, 'gradlew')
+    if not os.path.exists(gradlew):
+        print_error("gradlew not found. Make sure Android project is properly set up.")
+        sys.exit(1)
+
+    # Make gradlew executable
+    os.chmod(gradlew, 0o755)
+
+    # Clean previous builds
+    print_step("Cleaning previous builds...")
+    result = run(['./gradlew', 'clean'], cwd=android_path, check=False)
+
+    # Build the APK
+    if build_type == 'release':
+        print_step("Building release APK...")
+        result = run(['./gradlew', 'assembleRelease'], cwd=android_path)
+        apk_path = os.path.join(android_path, 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk')
+    else:
+        print_step("Building debug APK...")
+        result = run(['./gradlew', 'assembleDebug'], cwd=android_path)
+        apk_path = os.path.join(android_path, 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk')
+
+    if result is None:
+        print_error("APK build failed")
+        sys.exit(1)
+
+    if os.path.exists(apk_path):
+        # Copy APK to project root for easy access
+        output_dir = os.path.join(project_root, 'builds')
+        os.makedirs(output_dir, exist_ok=True)
+
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        output_name = f"teboraw-{build_type}-{timestamp}.apk"
+        output_path = os.path.join(output_dir, output_name)
+
+        import shutil
+        shutil.copy2(apk_path, output_path)
+
+        size_mb = os.path.getsize(output_path) / (1024 * 1024)
+        print()
+        print_success(f"APK built successfully!")
+        print_info(f"Location: builds/{output_name}")
+        print_info(f"Size: {size_mb:.1f} MB")
+        print()
+        print_info("To install on a connected device:")
+        print_info(f"  adb install builds/{output_name}")
+    else:
+        print_error(f"APK not found at expected location: {apk_path}")
+        sys.exit(1)
+
+
+# ==========================================
 # Restart
 # ==========================================
 
@@ -862,7 +938,7 @@ def interactive_logs(config):
 def interactive_menu():
     """Main interactive menu loop."""
     config = load_config()
-    dummy_args = argparse.Namespace(services=None, tail='100')
+    dummy_args = argparse.Namespace(services=None, tail='100', build_type='release')
 
     while True:
         clear_screen()
@@ -893,6 +969,11 @@ def interactive_menu():
         menu_option("5", "Build images only",        "Build Docker images locally")
         menu_option("6", "Push images only",         "Upload images to server")
         menu_option("7", "Run migrations",           "EF Core database update")
+        print()
+
+        # Mobile
+        print(f"  {Colors.BOLD}Mobile{Colors.NC}")
+        menu_option("m", "Build Android APK",        "Create installable APK")
         print()
 
         # Monitor
@@ -992,6 +1073,22 @@ def interactive_menu():
             interactive_config(config)
             config = load_config()
 
+        elif choice == 'm':
+            print()
+            menu_option("1", "Release APK", "Optimized for distribution")
+            menu_option("2", "Debug APK", "For testing with debugging enabled")
+            menu_option("b", "Back")
+            print()
+            build_choice = prompt(">")
+            if build_choice == '1':
+                dummy_args.build_type = 'release'
+                cmd_mobile(dummy_args, config)
+                pause()
+            elif build_choice == '2':
+                dummy_args.build_type = 'debug'
+                cmd_mobile(dummy_args, config)
+                pause()
+
 
 # ==========================================
 # Main
@@ -1028,6 +1125,7 @@ Commands:
   ssh-agent          Add SSH key to agent (cache passphrase)
   backup             Download a database backup
   config [key val]   Show or set configuration
+  mobile [type]      Build Android APK (release or debug)
 
 Run without arguments for interactive menu.
         '''
@@ -1036,10 +1134,13 @@ Run without arguments for interactive menu.
     parser.add_argument('command', choices=[
         'setup', 'setup-caddy', 'setup-env',
         'build', 'push', 'deploy', 'migrate',
-        'logs', 'status', 'restart', 'ssh', 'ssh-agent', 'backup', 'config'
+        'logs', 'status', 'restart', 'ssh', 'ssh-agent', 'backup', 'config',
+        'mobile'
     ], help='Command to run')
     parser.add_argument('services', nargs='*', help='Services to target (api, web)')
     parser.add_argument('--tail', default='100', help='Number of log lines (default: 100)')
+    parser.add_argument('--build-type', dest='build_type', default='release',
+                        choices=['release', 'debug'], help='APK build type (default: release)')
 
     args = parser.parse_args()
     config = load_config()
@@ -1059,6 +1160,7 @@ Run without arguments for interactive menu.
         'ssh-agent': cmd_ssh_agent,
         'backup': cmd_backup,
         'config': cmd_config,
+        'mobile': cmd_mobile,
     }
 
     try:
